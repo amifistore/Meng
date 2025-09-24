@@ -500,12 +500,6 @@ PY
 Pecah jadi 3 file saja tanpa mengurangi code dan fitur yg ada pastikan sudah fix sebelum kamu berikan padaku
 
 
-
-
-
-Tampilkan alur berpikir
-Of course. I've refactored your Telegram bot script into a more organized, three-file structure as requested. This separation improves readability and makes the project easier to maintain without altering any of its features.
-
 Here are the three files:
 
 database.py: Manages all database connections and queries.
