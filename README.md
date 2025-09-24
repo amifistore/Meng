@@ -41,7 +41,7 @@ Ikuti langkah-langkah berikut untuk menginstall dan menjalankan bot di server An
 Buka terminal di server Anda, lalu clone repositori ini dan masuk ke dalam direktorinya.
 
 ```bash
-git clone [https://github.com/amifistore/Meng.git](https://github.com/amifistore/Meng.git)
+git clone https://github.com/amifistore/Meng.git
 cd Meng
 
 python3 -m venv venv
