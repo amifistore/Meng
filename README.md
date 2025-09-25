@@ -43,6 +43,7 @@ Buka terminal di server Anda, lalu clone repositori ini dan masuk ke dalam direk
 ```bash
 git clone https://github.com/amifistore/Meng.git
 cd Meng
+~/Mila/Meng
 
 python3 -m venv venv
 source venv/bin/activate
@@ -51,4 +52,4 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 
-python bot.py
+python bot_akrab_step_inline.py
