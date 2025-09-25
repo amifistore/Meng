@@ -43,7 +43,8 @@ Buka terminal di server Anda, lalu clone repositori ini dan masuk ke dalam direk
 ```bash
 git clone https://github.com/amifistore/Meng.git
 cd Meng
-~/Mila/Meng
+
+cd~/Mila/Meng
 
 python3 -m venv venv
 source venv/bin/activate
