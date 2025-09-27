@@ -24,6 +24,7 @@ def generate_qris(amount, qris_statis):
             headers={"Content-Type": "application/json"},
             timeout=20
         )
+        response.raise_for_status()
         data = response.json()
         return data
     except Exception as e:
