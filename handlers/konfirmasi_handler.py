@@ -5,7 +5,7 @@ import logging
 
 from markup import get_menu
 from provider import create_trx
-from utils import get_saldo, set_saldo, load_riwayat, save_riwayat
+from utils import get_user_saldo, set_user_saldo, load_riwayat, save_riwayat   # FIXED import
 
 # Constants
 KONFIRMASI = 2
@@ -82,11 +82,13 @@ class TransactionConfirmationHandler:
     
     def _validate_balance(self, harga: int, update: Update, user_id: int) -> bool:
         """Validasi kecukupan saldo"""
-        saldo = get_saldo()
+        saldo = get_user_saldo(user_id)     # FIX: pakai saldo per user
         
         if saldo < harga:
             update.message.reply_text(
-                "❌ Saldo bot tidak cukup.", 
+                f"❌ Saldo kamu tidak cukup untuk transaksi ini.\n"
+                f"Saldo: Rp {saldo:,}\nHarga: Rp {harga:,}\n"
+                "Silakan top up dahulu.",
                 reply_markup=get_menu(user_id)
             )
             return False
@@ -106,8 +108,8 @@ class TransactionConfirmationHandler:
             # Save transaction record
             self._save_transaction_record(api_response, produk, tujuan, harga, update.effective_user)
             
-            # Update balance
-            self._update_balance(harga)
+            # Update balance PER USER
+            self._update_balance(user_id, harga)
             
             # Send success message
             self._send_success_message(update, api_response, produk, tujuan, harga, user_id)
@@ -157,15 +159,15 @@ class TransactionConfirmationHandler:
         
         save_riwayat(riwayat)
     
-    def _update_balance(self, harga: int):
-        """Update saldo bot"""
-        current_balance = get_saldo()
-        set_saldo(current_balance - harga)
+    def _update_balance(self, user_id: int, harga: int):
+        """Update saldo user"""
+        current_balance = get_user_saldo(user_id)
+        set_user_saldo(user_id, current_balance - harga)
     
     def _send_success_message(self, update: Update, api_response: Dict, produk: Dict, 
                             tujuan: str, harga: int, user_id: int):
         """Kirim pesan sukses transaksi"""
-        current_balance = get_saldo() - harga  # Already updated, but we calculate for message
+        current_balance = get_user_saldo(user_id)
         
         success_message = (
             f"✅ Transaksi berhasil!\n\n"
@@ -173,7 +175,7 @@ class TransactionConfirmationHandler:
             f"📱 Tujuan: {tujuan}\n"
             f"🔢 RefID: <code>{api_response['refid']}</code>\n"
             f"📊 Status: {api_response.get('status', 'pending')}\n"
-            f"💰 Saldo bot: Rp {current_balance:,}"
+            f"💰 Saldo kamu: Rp {current_balance:,}"
         )
         
         update.message.reply_text(
