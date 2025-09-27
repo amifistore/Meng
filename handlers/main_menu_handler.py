@@ -4,7 +4,7 @@ from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard, admin_edit_produk_keyboard, is_admin
 from produk import get_produk_list, get_produk_by_kode, edit_produk
 from provider import cek_stock_akrab
-from utils import get_saldo, set_saldo, format_stock_akrab
+from utils import get_user_saldo, set_user_saldo, format_stock_akrab  # FIX: gunakan fungsi saldo per user
 from handlers.riwayat_handler import riwayat_user, semua_riwayat
 
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
@@ -83,12 +83,17 @@ def main_menu_callback(update, context):
         return ConversationHandler.END
     
     elif data == 'lihat_saldo' and is_admin(user.id):
-        saldo = get_saldo()
-        query.edit_message_text(f"Saldo bot: <b>Rp {saldo:,}</b>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
+        # FIX saldo: tampilkan semua saldo user
+        from utils import get_all_saldo
+        all_saldo = get_all_saldo()
+        msg = "<b>Saldo semua user:</b>\n"
+        for uid, s in all_saldo.items():
+            msg += f"User <code>{uid}</code>: <b>Rp {s:,}</b>\n"
+        query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
     
     elif data == 'tambah_saldo' and is_admin(user.id):
-        query.edit_message_text("Kirim format: <code>TAMBAH|jumlah</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
+        query.edit_message_text("Kirim format: <code>TAMBAH|user_id|jumlah</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
     
     elif data == 'manajemen_produk' and is_admin(user.id):
