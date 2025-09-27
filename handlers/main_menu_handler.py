@@ -1,41 +1,22 @@
-import json
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard, admin_edit_produk_keyboard, is_admin
-from produk import get_produk_list, get_produk_by_kode, edit_produk
+from produk import get_produk_list, get_produk_by_kode
 from provider import cek_stock_akrab
-from utils import get_user_saldo, set_user_saldo, format_stock_akrab  # FIX: gunakan fungsi saldo per user
+from utils import get_user_saldo, set_user_saldo, format_stock_akrab
 from handlers.riwayat_handler import riwayat_user, semua_riwayat
 
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
-
-def start(update, context):
-    user = update.effective_user
-    update.message.reply_text(
-        f"Halo <b>{user.first_name}</b>!\nGunakan menu di bawah.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=get_menu(user.id)
-    )
-
-def cancel(update, context):
-    user = update.effective_user
-    context.user_data.clear()
-    update.message.reply_text(
-        "Operasi dibatalkan.",
-        reply_markup=get_menu(user.id)
-    )
-    return ConversationHandler.END
 
 def main_menu_callback(update, context):
     query = update.callback_query
     user = query.from_user
     data = query.data
 
-    # FIX: safely answer the query, ignore errors if expired
     try:
         query.answer()
     except Exception:
-        pass  # Do nothing if query is expired or invalid
+        pass
 
     if data == 'lihat_produk':
         produk_list = get_produk_list()
@@ -47,11 +28,11 @@ def main_menu_callback(update, context):
 
     elif data == 'beli_produk':
         query.edit_message_text(
-            "Pilih produk yang ingin dibeli:", 
+            "Pilih produk yang ingin dibeli:",
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK   # <-- Penting! agar handler produk_pilih_callback aktif
+        return CHOOSING_PRODUK
 
     elif data == 'topup':
         query.edit_message_text(
@@ -62,8 +43,8 @@ def main_menu_callback(update, context):
 
     elif data == 'cek_status':
         query.edit_message_text(
-            "Kirim format: <code>CEK|refid</code>\nContoh: <code>CEK|TRX123456</code>", 
-            parse_mode=ParseMode.HTML, 
+            "Kirim format: <code>CEK|refid</code>\nContoh: <code>CEK|TRX123456</code>",
+            parse_mode=ParseMode.HTML,
             reply_markup=get_menu(user.id)
         )
         return ConversationHandler.END
@@ -88,7 +69,6 @@ def main_menu_callback(update, context):
         return ConversationHandler.END
 
     elif data == 'lihat_saldo' and is_admin(user.id):
-        # FIX saldo: tampilkan semua saldo user
         from utils import get_all_saldo
         all_saldo = get_all_saldo()
         msg = "<b>Saldo semua user:</b>\n"
@@ -129,7 +109,7 @@ def main_menu_callback(update, context):
         context.user_data["edit_kode"] = kode
         context.user_data["edit_field"] = "harga"
         query.edit_message_text(
-            f"Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.", 
+            f"Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.",
             parse_mode=ParseMode.HTML
         )
         return ADMIN_EDIT
@@ -139,7 +119,7 @@ def main_menu_callback(update, context):
         context.user_data["edit_kode"] = kode
         context.user_data["edit_field"] = "deskripsi"
         query.edit_message_text(
-            f"Masukkan deskripsi baru untuk produk <b>{kode}</b>:\n\nKetik /batal untuk membatalkan.", 
+            f"Masukkan deskripsi baru untuk produk <b>{kode}</b>:\n\nKetik /batal untuk membatalkan.",
             parse_mode=ParseMode.HTML
         )
         return ADMIN_EDIT
@@ -163,6 +143,5 @@ def main_menu_callback(update, context):
         return ConversationHandler.END
 
     else:
-        # Debug callback: tampilkan callback yang tidak dikenali
         query.edit_message_text(f"Menu tidak dikenal. Callback: <code>{data}</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
