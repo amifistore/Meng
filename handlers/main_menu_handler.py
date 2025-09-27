@@ -35,7 +35,7 @@ def main_menu_callback(update, context):
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK  # INI FIXNYA! HARUS RETURN STATE PRODUK!
+        return CHOOSING_PRODUK
 
     else:
         query.edit_message_text(
