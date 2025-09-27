@@ -7,7 +7,8 @@ from telegram.ext import (
     Filters,
     ConversationHandler
 )
-from handlers import (
+# Import semua handler dari main_menu_handler
+from handlers.main_menu_handler import (
     start,
     cancel,
     main_menu_callback,
@@ -21,37 +22,26 @@ from handlers import (
 # State definitions
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
-# Enable logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
 def main():
-    # Ganti dengan token kamu
-    TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+    TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Ganti dengan token bot kamu!
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Conversation handler for menu & transaksi
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start),
             CallbackQueryHandler(main_menu_callback)
         ],
         states={
-            CHOOSING_PRODUK: [
-                CallbackQueryHandler(choose_produk_callback)
-            ],
-            INPUT_TUJUAN: [
-                MessageHandler(Filters.text & ~Filters.command, input_tujuan_callback)
-            ],
-            KONFIRMASI: [
-                MessageHandler(Filters.text & ~Filters.command, konfirmasi_callback)
-            ],
-            TOPUP_NOMINAL: [
-                MessageHandler(Filters.text & ~Filters.command, topup_nominal_callback)
-            ],
+            CHOOSING_PRODUK: [CallbackQueryHandler(choose_produk_callback)],
+            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_callback)],
+            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, konfirmasi_callback)],
+            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_callback)],
             ADMIN_EDIT: [
                 MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_callback),
                 CallbackQueryHandler(main_menu_callback)
@@ -63,10 +53,6 @@ def main():
     )
     dp.add_handler(conv_handler)
 
-    # Optional: Tambahkan handler lain jika perlu (misal help, info dsb)
-    # dp.add_handler(CommandHandler('help', help_callback))
-
-    # Start bot
     updater.start_polling()
     updater.idle()
 
