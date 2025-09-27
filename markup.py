@@ -49,12 +49,19 @@ def get_menu(user_id):
 def produk_inline_keyboard():
     produk_list = get_produk_list()
     keyboard = []
+    
+    print(f"🔍 Jumlah produk: {len(produk_list)}")  # Debug log
+    
     for i, p in enumerate(produk_list):
         status = "✅" if p.get("kuota", 0) > 0 else "❌"
         label = f"{status} {p['nama']} | Rp {p['harga']:,}"
+        callback_data = f"produk_static|{i}"
+        print(f"🔍 Produk {i}: {p['nama']} -> {callback_data}")  # Debug log
+        
         keyboard.append([
-            InlineKeyboardButton(label, callback_data=f"produk_static|{i}")
+            InlineKeyboardButton(label, callback_data=callback_data)
         ])
+    
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
 
