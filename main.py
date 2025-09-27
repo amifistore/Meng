@@ -9,21 +9,36 @@ from telegram.ext import (
 )
 
 # Import handler dari modul handlers
-from handlers.main_menu_handler import start, cancel, main_menu_callback
-from handlers.produk_pilih_handler import produk_pilih_callback
+from handlers.main_menu_callback import main_menu_callback
+from handlers.produk_pilih_callback import produk_pilih_callback
 from handlers.input_tujuan_handler import input_tujuan_step
 from handlers.konfirmasi_handler import konfirmasi_step
 from handlers.topup_handler import topup_nominal_step
 from handlers.admin_edit_produk_handler import admin_edit_produk_step
 from handlers.text_handler import handle_text
 
-# State untuk ConversationHandler
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
+
+def start(update, context):
+    user = update.effective_user
+    update.message.reply_text(
+        f"Halo <b>{user.first_name}</b>!\nGunakan menu di bawah.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=get_menu(user.id)
+    )
+
+def cancel(update, context):
+    user = update.effective_user
+    context.user_data.clear()
+    update.message.reply_text(
+        "Operasi dibatalkan.",
+        reply_markup=get_menu(user.id)
+    )
+    return ConversationHandler.END
 
 def main():
     import os
 
-    # Load token dari config.py atau environment variable
     try:
         from config import TOKEN
     except ImportError:
@@ -32,7 +47,6 @@ def main():
     updater = Updater(token=TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Conversation handler untuk menu interaktif
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
@@ -49,11 +63,8 @@ def main():
         allow_reentry=True
     )
 
-    # Handler untuk /start
     dp.add_handler(CommandHandler("start", start))
-    # Handler untuk conversation (menu inline)
     dp.add_handler(conv_handler)
-    # Handler untuk text bebas di luar conversation
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
 
     print("Bot is running ...")
