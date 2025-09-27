@@ -5,8 +5,6 @@ from produk import get_produk_list, get_produk_by_kode, edit_produk, reset_produ
 from provider import cek_stock_akrab
 from utils import format_stock_akrab, get_all_saldo
 
-# Remove problematic imports - akan dihandle oleh main.py
-
 def start(update, context):
     user = update.effective_user
     update.message.reply_text(
@@ -135,7 +133,7 @@ def main_menu_callback(update, context):
         context.user_data["edit_kode"] = kode
         context.user_data["edit_field"] = "harga"
         query.edit_message_text(
-            f💰 Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.", 
+            f"💰 Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.", 
             parse_mode=ParseMode.HTML
         )
         return ADMIN_EDIT
