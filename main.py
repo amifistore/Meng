@@ -1,64 +1,69 @@
-from telegram import ParseMode
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    Filters,
-    ConversationHandler
-)
-
-# Import handler dari modul handlers
-from handlers.main_menu_handler import start, cancel, main_menu_callback
+import logging
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
+from config import TOKEN
+from markup import get_menu
+from handlers.main_menu_handler import main_menu_callback, start, cancel, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT
 from handlers.produk_pilih_handler import produk_pilih_callback
-from handlers.input_tujuan_handler import input_tujuan_step
-from handlers.konfirmasi_handler import konfirmasi_step
-from handlers.topup_handler import topup_nominal_step
-from handlers.admin_edit_produk_handler import admin_edit_produk_step
-from handlers.text_handler import handle_text
+from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
+from handlers.riwayat_handler import riwayat_user, semua_riwayat
 
-# State untuk ConversationHandler
-CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
+# Setup logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+def error_handler(update, context):
+    logger.error(f"Error: {context.error}", exc_info=context.error)
+    if update and update.effective_user:
+        update.effective_message.reply_text(
+            "❌ Terjadi error sistem. Silakan coba lagi atau hubungi admin.",
+            reply_markup=get_menu(update.effective_user.id)
+        )
 
 def main():
-    import os
-
-    # Load token dari config.py atau environment variable
-    try:
-        from config import TOKEN
-    except ImportError:
-        TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
-
-    updater = Updater(token=TOKEN, use_context=True)
+    # Create updater
+    updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
-
-    # Conversation handler untuk menu interaktif
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(main_menu_callback)],
+    
+    # Conversation handler for product order
+    order_conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|')],
         states={
-            CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
-            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
-            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, konfirmasi_step)],
-            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
-            ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
+            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
         },
-        fallbacks=[
-            MessageHandler(Filters.regex('^(/batal|batal|BATAL|cancel)$'), cancel),
-            MessageHandler(Filters.command, cancel)
-        ],
+        fallbacks=[CommandHandler('batal', cancel)],
         allow_reentry=True
     )
-
-    # Handler untuk /start
+    
+    # Main menu conversation handler
+    main_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            CHOOSING_PRODUK: [CallbackQueryHandler(main_menu_callback)],
+            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)],
+            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, main_menu_callback)],
+            ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, main_menu_callback)]
+        },
+        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('batal', cancel)]
+    )
+    
+    # Add handlers
     dp.add_handler(CommandHandler("start", start))
-    # Handler untuk conversation (menu inline)
-    dp.add_handler(conv_handler)
-    # Handler untuk text bebas di luar conversation
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
-
-    print("Bot is running ...")
+    dp.add_handler(CallbackQueryHandler(main_menu_callback))
+    dp.add_handler(order_conv_handler)
+    dp.add_handler(main_conv_handler)
+    
+    # Error handler
+    dp.add_error_handler(error_handler)
+    
+    # Start bot
+    print("🤖 Bot started successfully!")
     updater.start_polling()
     updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
