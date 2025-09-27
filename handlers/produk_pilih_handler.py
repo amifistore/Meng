@@ -11,7 +11,6 @@ def produk_pilih_callback(update, context):
     user = query.from_user
     data = query.data
 
-    # Jawab callback dengan aman
     try:
         query.answer()
     except Exception:
@@ -29,7 +28,6 @@ def produk_pilih_callback(update, context):
             p = produk_list[idx]
             context.user_data["produk"] = p
 
-            # Cek saldo user
             saldo = get_user_saldo(user.id)
             if saldo < p['harga']:
                 query.edit_message_text(
@@ -42,7 +40,6 @@ def produk_pilih_callback(update, context):
                 )
                 return ConversationHandler.END
 
-            # Sukses, lanjut input tujuan
             query.edit_message_text(
                 f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\n"
                 f"Harga: Rp {p['harga']:,}\nKuota: {p.get('kuota', p.get('sisa_slot', 0))}\n\n"
@@ -50,16 +47,15 @@ def produk_pilih_callback(update, context):
                 parse_mode=ParseMode.HTML
             )
             return INPUT_TUJUAN
-        except (ValueError, IndexError) as e:
+        except Exception as e:
             query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
             return ConversationHandler.END
 
-    # Tombol kembali ke menu utama
     elif data == "back_main":
         query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
-    # Callback lain yang tidak dikenali
     else:
-        query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
+        # DEBUG: Tampilkan callback data jika tidak dikenal agar mudah tracing!
+        query.edit_message_text(f"Menu tidak dikenal. (Callback: <code>{data}</code>)", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
