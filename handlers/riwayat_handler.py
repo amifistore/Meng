@@ -1,44 +1,58 @@
 from telegram import ParseMode
-from markup import get_menu
 from utils import load_riwayat
+from markup import get_menu
 
-def riwayat_user(query, context):
+def riwayat_user(update, context):
+    if hasattr(update, 'callback_query'):
+        query = update.callback_query
+        user = query.from_user
+        query.answer()
+    else:
+        user = update.effective_user
+    
+    riwayat_data = load_riwayat(user.id)
+    
+    if not riwayat_data:
+        msg = "📄 **Riwayat Transaksi Kosong**\n\nBelum ada transaksi yang dilakukan."
+    else:
+        msg = "📄 **Riwayat Transaksi Terakhir**\n\n"
+        for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
+            status = "✅" if trx.get('status') == 'success' else "❌"
+            msg += f"{i}. {status} {trx.get('ref_id', 'N/A')} - {trx.get('produk', 'N/A')}\n"
+            msg += f"   📱 {trx.get('tujuan', 'N/A')} | 💰 Rp {trx.get('harga', 0):,}\n"
+            msg += f"   🕒 {trx.get('tanggal', 'N/A')}\n\n"
+    
+    if hasattr(update, 'callback_query'):
+        query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=get_menu(user.id))
+    else:
+        update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=get_menu(user.id))
+
+def semua_riwayat(update, context):
+    from utils import load_riwayat
+    from markup import is_admin
+    
+    query = update.callback_query
     user = query.from_user
-    try:
-        riwayat = load_riwayat()
-        items = [r for r in riwayat.values() if r.get("user_id") == user.id]
-        items = sorted(items, key=lambda x: x.get("waktu", ""), reverse=True)
-        msg = "<b>📜 Riwayat Transaksi Anda:</b>\n\n"
-        for r in items[:10]:
-            msg += (
-                f"⏰ {r.get('waktu','')}\n"
-                f"🔢 RefID: <code>{r['reffid']}</code>\n"
-                f"📦 {r['produk']} ke {r['tujuan']}\n"
-                f"💰 Rp {r['harga']:,}\n"
-                f"📊 Status: <b>{r['status_text']}</b>\n\n"
-            )
-        if not items:
-            msg += "Belum ada transaksi."
-        query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
-    except Exception as e:
-        query.edit_message_text(f"❌ Error memuat riwayat: {str(e)}", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
-
-def semua_riwayat(query, context):
-    try:
-        riwayat = list(load_riwayat().values())
-        riwayat = sorted(riwayat, key=lambda x: x.get("waktu", ""), reverse=True)
-        msg = "<b>📜 Semua Riwayat Transaksi (max 30):</b>\n\n"
-        for r in riwayat[:30]:
-            msg += (
-                f"⏰ {r.get('waktu','')}\n"
-                f"🔢 RefID: <code>{r['reffid']}</code>\n"
-                f"📦 {r['produk']} ke {r['tujuan']}\n"
-                f"💰 Rp {r['harga']:,}\n"
-                f"📊 Status: <b>{r['status_text']}</b>\n"
-                f"👤 User: {r.get('username','-')}\n\n"
-            )
-        if not riwayat:
-            msg += "Belum ada transaksi."
-        query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(query.from_user.id))
-    except Exception as e:
-        query.edit_message_text(f"❌ Error memuat riwayat: {str(e)}", parse_mode=ParseMode.HTML, reply_markup=get_menu(query.from_user.id))
+    query.answer()
+    
+    if not is_admin(user.id):
+        query.edit_message_text("❌ Akses ditolak.", reply_markup=get_menu(user.id))
+        return
+    
+    all_riwayat = load_riwayat()
+    
+    if not all_riwayat:
+        msg = "📄 **Semua Riwayat Kosong**\n\nBelum ada transaksi dari semua user."
+    else:
+        msg = "📄 **Semua Riwayat Transaksi**\n\n"
+        total = 0
+        for user_id, transactions in all_riwayat.items():
+            msg += f"👤 User {user_id}:\n"
+            for trx in transactions[-3:]:
+                status = "✅" if trx.get('status') == 'success' else "❌"
+                msg += f"   {status} {trx.get('ref_id')} - {trx.get('produk')}\n"
+                total += trx.get('harga', 0)
+            msg += "\n"
+        msg += f"💰 **Total Transaksi: Rp {total:,}**"
+    
+    query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=get_menu(user.id))
