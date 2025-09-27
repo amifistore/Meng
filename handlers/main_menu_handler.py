@@ -49,7 +49,7 @@ def main_menu_callback(update, context):
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK  # FIX: Harus ke state produk!
+        return CHOOSING_PRODUK  # <--- FIX! Harus ke state produk!
 
     elif data == 'topup':
         query.edit_message_text(
