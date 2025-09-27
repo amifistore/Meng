@@ -57,7 +57,7 @@ def main():
         
         # Step 3: Create updater
         print("🔄 Step 3: Creating updater...")
-        from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+        from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
@@ -81,6 +81,22 @@ def main():
         dp.add_handler(CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|'))
         print("✅ Callback handlers added")
         
+        # Conversation handler
+        from handlers.main_menu_handler import INPUT_TUJUAN, KONFIRMASI
+        from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
+        
+        order_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|')],
+            states={
+                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+                KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
+            },
+            fallbacks=[CommandHandler('batal', cancel)],
+            allow_reentry=True
+        )
+        dp.add_handler(order_conv_handler)
+        print("✅ Conversation handler added")
+        
         # Step 5: Error handler
         def error_handler(update, context):
             logger.error(f"Error: {context.error}")
@@ -97,13 +113,12 @@ def main():
         
         time.sleep(1)
         
-        # Step 7: Start polling
+        # Step 7: Start polling - FIXED PARAMETERS
         print("🔄 Step 6: Starting polling...")
         updater.start_polling(
             poll_interval=1.0,
             timeout=30,
-            clean=True,
-            drop_pending_updates=True
+            drop_pending_updates=True  # Hanya gunakan satu parameter
         )
         
         print("=" * 50)
