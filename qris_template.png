@@ -1,0 +1,30 @@
+from PIL import Image, ImageDraw, ImageFont
+
+def generate_qris_template(filename="qris_template.png"):
+    width, height = 600, 900
+    bg_color = (185, 0, 0)  # QRIS merah
+    qr_area = (150, 400, 450, 700)  # (x1, y1, x2, y2)
+    white = (255, 255, 255)
+
+    # Buat background merah
+    img = Image.new("RGB", (width, height), bg_color)
+    draw = ImageDraw.Draw(img)
+
+    # Area QR putih
+    draw.rectangle(qr_area, fill=white)
+
+    # Tulisan QRIS di atas QR code
+    try:
+        font = ImageFont.truetype("arial.ttf", 60)
+    except:
+        font = ImageFont.load_default()
+    draw.text((width//2-70, 320), "QRIS", fill=white, font=font)
+
+    # Tulisan merchant di bawah
+    draw.text((60, 750), "Merchant QRIS Dinamis", fill=white, font=font)
+
+    img.save(filename)
+    print(f"QRIS template saved to {filename}")
+
+if __name__ == "__main__":
+    generate_qris_template()
