@@ -1,11 +1,14 @@
+from telegram import ParseMode
 from telegram.ext import (
-    Application, 
-    CommandHandler, 
-    CallbackQueryHandler, 
-    MessageHandler, 
-    ConversationHandler, 
-    filters
+    Updater,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    Filters,
+    ConversationHandler
 )
+
+# Import handler dari file lain atau definisikan langsung di sini
 from handlers.main_menu_handler import start, cancel, main_menu_callback
 from handlers.produk_pilih_handler import produk_pilih_callback
 from handlers.input_tujuan_handler import input_tujuan_step
@@ -18,33 +21,40 @@ CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
 def main():
     import os
-    from telegram import Bot
+
+    # Ganti dengan token bot kamu
     TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
-    application = Application.builder().token(TOKEN).build()
+
+    updater = Updater(token=TOKEN, use_context=True)
+    dp = updater.dispatcher
 
     # Conversation handler
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
             CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
-            INPUT_TUJUAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_tujuan_step)],
-            KONFIRMASI: [MessageHandler(filters.TEXT & ~filters.COMMAND, konfirmasi_step)],
-            TOPUP_NOMINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, topup_nominal_step)],
-            ADMIN_EDIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_edit_produk_step)],
+            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
+            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, konfirmasi_step)],
+            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
+            ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
         },
         fallbacks=[
-            MessageHandler(filters.Regex('^(/batal|batal|BATAL|cancel)$'), cancel),
-            MessageHandler(filters.COMMAND, cancel)
+            MessageHandler(Filters.regex('^(/batal|batal|BATAL|cancel)$'), cancel),
+            MessageHandler(Filters.command, cancel)
         ],
         allow_reentry=True
     )
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(conv_handler)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    
-    print("Bot is running...")
-    application.run_polling()
+    # Command /start
+    dp.add_handler(CommandHandler("start", start))
+    # Conversation (all menu via inline button)
+    dp.add_handler(conv_handler)
+    # Handle text bebas di luar conversation
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
+
+    print("Bot is running ...")
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main()
