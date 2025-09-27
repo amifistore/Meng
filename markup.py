@@ -16,12 +16,11 @@ def get_menu(user_id):
     return InlineKeyboardMarkup(keyboard)
 
 def produk_inline_keyboard():
-    # Ambil daftar produk dari produk.py
     from produk import get_produk_list
     produk_list = get_produk_list()
     keyboard = []
     for idx, p in enumerate(produk_list):
-        label = f"{p['nama']} - Rp {p['harga']:,}"
+        label = f"{p['nama']} - Rp {p['harga']:,} [{p.get('sisa_slot', p.get('kuota',0))} slot]"
         keyboard.append([InlineKeyboardButton(label, callback_data=f"produk_static|{idx}")])
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
@@ -36,6 +35,5 @@ def admin_edit_produk_keyboard(kode):
     return InlineKeyboardMarkup(keyboard)
 
 def is_admin(user_id):
-    # Ganti dengan daftar user admin
-    admin_ids = [123456789, 111222333]
+    admin_ids = [123456789, 111222333]  # Ganti sesuai user admin kamu
     return user_id in admin_ids
