@@ -1,4 +1,5 @@
 from telegram import ParseMode
+from telegram.ext import ConversationHandler
 from markup import get_menu
 
 INPUT_TUJUAN, KONFIRMASI = 1, 2
