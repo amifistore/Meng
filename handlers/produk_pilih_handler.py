@@ -4,7 +4,7 @@ from markup import get_menu
 from produk import get_produk_list
 from utils import get_user_saldo
 
-CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
+CHOOSING_PRODUK, INPUT_TUJUAN = range(2)
 
 def produk_pilih_callback(update, context):
     query = update.callback_query
