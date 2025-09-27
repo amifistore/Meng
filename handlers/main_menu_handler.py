@@ -49,7 +49,7 @@ def main_menu_callback(update, context):
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK
+        return CHOOSING_PRODUK  # <--- Penting! agar handler produk_pilih_callback AKTIF
 
     elif data == 'topup':
         query.edit_message_text(
