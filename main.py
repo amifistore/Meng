@@ -19,7 +19,7 @@ from handlers.main_menu_handler import (
     admin_edit_produk_callback,
 )
 
-# State definitions
+# State definitions (harus sama seperti di handler)
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
 logging.basicConfig(
