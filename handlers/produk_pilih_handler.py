@@ -57,3 +57,15 @@ def produk_pilih_callback(update, context):
             reply_markup=get_menu(user.id)
         )
         return ConversationHandler.END
+
+def input_tujuan_step(update, context):
+    nomor = update.message.text.strip()
+    if not nomor.isdigit() or len(nomor) < 8:
+        update.message.reply_text("❌ Format nomor tujuan tidak valid. Coba lagi.")
+        return INPUT_TUJUAN
+    context.user_data["tujuan"] = nomor
+    produk = context.user_data.get("produk")
+    update.message.reply_text(
+        f"Konfirmasi Pesanan:\nProduk: {produk['nama']}\nNomor: {nomor}\n\nKetik YA untuk konfirmasi, atau /batal untuk batal."
+    )
+    return ConversationHandler.END  # Lanjutkan sesuai flow (bisa ke state KONFIRMASI kalau mau)
