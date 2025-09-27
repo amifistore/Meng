@@ -1,6 +1,6 @@
 from telegram import ParseMode
 from telegram.ext import ConversationHandler
-from markup import get_menu, produk_inline_keyboard
+from markup import get_menu
 from produk import get_produk_list
 from utils import get_user_saldo
 
@@ -49,10 +49,6 @@ def produk_pilih_callback(update, context):
         except Exception as e:
             query.edit_message_text(f"❌ Error memilih produk: {e}", reply_markup=get_menu(user.id))
             return ConversationHandler.END
-
-    elif data == "back_main":
-        query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
-        return ConversationHandler.END
 
     else:
         query.edit_message_text(
