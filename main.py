@@ -7,7 +7,7 @@ from telegram.ext import (
     Filters,
     ConversationHandler
 )
-from markup import get_menu  # Fix NameError
+from markup import get_menu  # Import menu generator untuk reply_markup
 from handlers.main_menu_handler import main_menu_callback, start, cancel
 from handlers.produk_pilih_handler import produk_pilih_callback
 from handlers.input_tujuan_handler import input_tujuan_step
@@ -16,11 +16,13 @@ from handlers.topup_handler import topup_nominal_step
 from handlers.admin_edit_produk_handler import admin_edit_produk_step
 from handlers.text_handler import handle_text
 
+# State definitions for ConversationHandler
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
 def main():
     import os
 
+    # Token loading from config or environment
     try:
         from config import TOKEN
     except ImportError:
@@ -29,6 +31,7 @@ def main():
     updater = Updater(token=TOKEN, use_context=True)
     dp = updater.dispatcher
 
+    # ConversationHandler setup
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
@@ -45,6 +48,7 @@ def main():
         allow_reentry=True
     )
 
+    # Register handlers
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(conv_handler)
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
