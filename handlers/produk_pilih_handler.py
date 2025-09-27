@@ -1,7 +1,8 @@
 from telegram import ParseMode
+from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard
 from produk import get_produk_list
-
+from utils import get_user_saldo  # pastikan fungsi ini ada dan bekerja!
 CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
 
 def produk_pilih_callback(update, context):
@@ -20,6 +21,20 @@ def produk_pilih_callback(update, context):
             
             p = produk_list[idx]
             context.user_data["produk"] = p
+
+            # CEK SALDO USER
+            saldo = get_user_saldo(user.id)
+            if saldo < p['harga']:
+                query.edit_message_text(
+                    f"❌ Saldo kamu tidak cukup untuk order produk ini.\n"
+                    f"Produk: <b>{p['nama']}</b>\nHarga: Rp {p['harga']:,}\n"
+                    f"Saldo kamu: Rp {saldo:,}\n\n"
+                    "Silakan top up dahulu sebelum order.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_menu(user.id)
+                )
+                return ConversationHandler.END
+
             query.edit_message_text(
                 f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\nHarga: Rp {p['harga']:,}\nKuota: {p['kuota']}\n\nSilakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
                 parse_mode=ParseMode.HTML
