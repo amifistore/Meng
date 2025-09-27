@@ -11,17 +11,19 @@ def produk_pilih_callback(update, context):
     user = query.from_user
     data = query.data
     
+    print(f"🔍 [PRODUK_HANDLER] Callback received: '{data}'")
+    
     try:
         query.answer()
     except Exception:
         pass
 
-    print(f"🔍 Callback data received: {data}")  # Debug log
-
     if data.startswith("produk_static|"):
         try:
             idx = int(data.split("|")[1])
             produk_list = get_produk_list()
+            
+            print(f"🔍 [PRODUK_HANDLER] Product index: {idx}, Total products: {len(produk_list)}")
             
             if idx < 0 or idx >= len(produk_list):
                 query.edit_message_text("❌ Produk tidak valid.", reply_markup=get_menu(user.id))
@@ -30,6 +32,8 @@ def produk_pilih_callback(update, context):
             p = produk_list[idx]
             context.user_data["produk"] = p
 
+            print(f"🔍 [PRODUK_HANDLER] Selected product: {p['nama']}")
+            
             saldo = get_user_saldo(user.id)
             if saldo < p['harga']:
                 query.edit_message_text(
@@ -48,7 +52,7 @@ def produk_pilih_callback(update, context):
             )
             return INPUT_TUJUAN
         except (ValueError, IndexError) as e:
-            print(f"❌ Error memilih produk: {e}")
+            print(f"❌ [PRODUK_HANDLER] Error memilih produk: {e}")
             query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
             return ConversationHandler.END
 
@@ -57,6 +61,6 @@ def produk_pilih_callback(update, context):
         return ConversationHandler.END
 
     else:
-        print(f"❌ Callback tidak dikenali: {data}")
-        query.edit_message_text("❌ Menu tidak dikenal.", reply_markup=get_menu(user.id))
+        print(f"❌ [PRODUK_HANDLER] Callback tidak dikenali: {data}")
+        # Jangan handle callback yang bukan untuk produk handler
         return ConversationHandler.END
