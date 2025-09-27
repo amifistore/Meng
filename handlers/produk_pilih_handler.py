@@ -16,7 +16,6 @@ def produk_pilih_callback(update, context):
     except Exception:
         pass
 
-    # Pemilihan produk dari tombol inline
     if data.startswith("produk_static|"):
         try:
             idx = int(data.split("|")[1])
@@ -48,7 +47,7 @@ def produk_pilih_callback(update, context):
             )
             return INPUT_TUJUAN
         except Exception as e:
-            query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
+            query.edit_message_text(f"❌ Error memilih produk: {e}", reply_markup=get_menu(user.id))
             return ConversationHandler.END
 
     elif data == "back_main":
@@ -56,6 +55,5 @@ def produk_pilih_callback(update, context):
         return ConversationHandler.END
 
     else:
-        # DEBUG: Tampilkan callback data jika tidak dikenal agar mudah tracing!
-        query.edit_message_text(f"Menu tidak dikenal. (Callback: <code>{data}</code>)", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
+        query.edit_message_text(f"Menu tidak dikenal. Callback: <code>{data}</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
