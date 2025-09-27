@@ -8,6 +8,23 @@ from handlers.riwayat_handler import riwayat_user, semua_riwayat
 
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
+def start(update, context):
+    user = update.effective_user
+    update.message.reply_text(
+        f"Halo <b>{user.first_name}</b>!\nGunakan menu di bawah.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=get_menu(user.id)
+    )
+
+def cancel(update, context):
+    user = update.effective_user
+    context.user_data.clear()
+    update.message.reply_text(
+        "Operasi dibatalkan.",
+        reply_markup=get_menu(user.id)
+    )
+    return ConversationHandler.END
+
 def main_menu_callback(update, context):
     query = update.callback_query
     user = query.from_user
