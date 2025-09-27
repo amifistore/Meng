@@ -1,65 +1,50 @@
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
-from config import TOKEN
-from handlers import (
-    start, main_menu_callback, produk_pilih_callback, input_tujuan_step, konfirmasi_step,
-    topup_nominal_step, admin_edit_produk_step, handle_text, cancel,
-    CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT
+from telegram.ext import (
+    Application, 
+    CommandHandler, 
+    CallbackQueryHandler, 
+    MessageHandler, 
+    ConversationHandler, 
+    filters
 )
+from handlers.main_menu_handler import start, cancel, main_menu_callback
+from handlers.produk_pilih_handler import produk_pilih_callback
+from handlers.input_tujuan_handler import input_tujuan_step
+from handlers.konfirmasi_handler import konfirmasi_step
+from handlers.topup_handler import topup_nominal_step
+from handlers.admin_edit_produk_handler import admin_edit_produk_step
+from handlers.text_handler import handle_text
+
+CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
 def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    import os
+    from telegram import Bot
+    TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
+    application = Application.builder().token(TOKEN).build()
 
-    # ✅ VERSI FIXED - Pattern matching yang benar
+    # Conversation handler
     conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler("start", start),
-            CallbackQueryHandler(main_menu_callback, pattern="^(lihat_produk|beli_produk|topup|cek_status|riwayat|stock_akrab|semua_riwayat|lihat_saldo|tambah_saldo|manajemen_produk|admin_edit_produk|editharga|editdeskripsi|resetcustom|back_admin|back_main)$"),
-        ],
+        entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
-            CHOOSING_PRODUK: [
-                CallbackQueryHandler(produk_pilih_callback, pattern="^produk_static\\|"),
-                CallbackQueryHandler(main_menu_callback, pattern="^back_main$"),
-            ],
-            INPUT_TUJUAN: [
-                MessageHandler(Filters.text & ~Filters.command, input_tujuan_step),
-            ],
-            KONFIRMASI: [
-                MessageHandler(Filters.text & ~Filters.command, konfirmasi_step),
-            ],
-            TOPUP_NOMINAL: [
-                MessageHandler(Filters.text & ~Filters.command, topup_nominal_step),
-            ],
-            ADMIN_EDIT: [
-                MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step),
-            ],
+            CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
+            INPUT_TUJUAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_tujuan_step)],
+            KONFIRMASI: [MessageHandler(filters.TEXT & ~filters.COMMAND, konfirmasi_step)],
+            TOPUP_NOMINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, topup_nominal_step)],
+            ADMIN_EDIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_edit_produk_step)],
         },
         fallbacks=[
-            CommandHandler("cancel", cancel),
-            CommandHandler("batal", cancel),
-            CommandHandler("start", start),
-            MessageHandler(Filters.regex('^(batal|BATAL|cancel)$'), cancel),
+            MessageHandler(filters.Regex('^(/batal|batal|BATAL|cancel)$'), cancel),
+            MessageHandler(filters.COMMAND, cancel)
         ],
-        allow_reentry=True,
+        allow_reentry=True
     )
 
-    # ✅ Handler untuk callback query yang tidak tertangkap conversation
-    dp.add_handler(conv_handler)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(conv_handler)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     
-    # ✅ Fallback callback handler untuk menangani semua callback lainnya
-    dp.add_handler(CallbackQueryHandler(main_menu_callback))
-    
-    # ✅ Handler untuk command
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("cancel", cancel))
-    dp.add_handler(CommandHandler("batal", cancel))
-    
-    # ✅ Handler untuk pesan teks
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
+    print("Bot is running...")
+    application.run_polling()
 
-    print("🚀 Bot Akrab Started Successfully!")
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
