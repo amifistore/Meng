@@ -1,64 +1,100 @@
 from telegram import ParseMode
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    Filters,
-    ConversationHandler
-)
+from telegram.ext import ConversationHandler
+from markup import get_menu
+from produk import get_produk_by_kode, edit_produk, reset_produk_custom
 
-# Import handler dari modul handlers
-from handlers.main_menu_handler import start, cancel, main_menu_callback
-from handlers.produk_pilih_handler import produk_pilih_callback
-from handlers.input_tujuan_handler import input_tujuan_step
-from handlers.konfirmasi_handler import konfirmasi_step
-from handlers.topup_handler import topup_nominal_step
-from handlers.admin_edit_produk_handler import admin_edit_produk_step
-from handlers.text_handler import handle_text
+ADMIN_EDIT = 4
 
-# State untuk ConversationHandler
-CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
+def admin_edit_produk_step(update, context):
+    kode = context.user_data.get("edit_kode")
+    field = context.user_data.get("edit_field")
+    value = update.message.text.strip()
 
-def main():
-    import os
+    if not kode or not field:
+        update.message.reply_text(
+            "❌ Kueri tidak valid. Silakan ulangi.",
+            reply_markup=get_menu(update.effective_user.id)
+        )
+        return ConversationHandler.END
 
-    # Load token dari config.py atau environment variable
+    p = get_produk_by_kode(kode)
+    if not p:
+        update.message.reply_text(
+            "❌ Produk tidak ditemukan.",
+            reply_markup=get_menu(update.effective_user.id)
+        )
+        return ConversationHandler.END
+
     try:
-        from config import TOKEN
-    except ImportError:
-        TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
+        if field == "harga":
+            try:
+                harga = int(value.replace(".", "").replace(",", ""))
+                if harga <= 0:
+                    raise ValueError("Harga harus lebih dari 0.")
+                old_harga = p["harga"]
+                edit_produk(kode, harga=harga)
+                p_new = get_produk_by_kode(kode)
+                update.message.reply_text(
+                    f"✅ <b>Harga produk berhasil diupdate!</b>\n\n"
+                    f"Produk: <b>{kode}</b> - {p_new['nama']}\n"
+                    f"Harga lama: <s>Rp {old_harga:,}</s>\n"
+                    f"Harga baru: <b>Rp {p_new['harga']:,}</b>\n"
+                    f"Deskripsi: {p_new['deskripsi']}",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_menu(update.effective_user.id)
+                )
+            except ValueError as e:
+                update.message.reply_text(
+                    f"❌ Format harga tidak valid: {str(e)}\nSilakan masukkan lagi:",
+                    parse_mode=ParseMode.HTML
+                )
+                return ADMIN_EDIT
 
-    updater = Updater(token=TOKEN, use_context=True)
-    dp = updater.dispatcher
+        elif field == "deskripsi":
+            old_deskripsi = p["deskripsi"]
+            edit_produk(kode, deskripsi=value)
+            p_new = get_produk_by_kode(kode)
+            update.message.reply_text(
+                f"✅ <b>Deskripsi produk berhasil diupdate!</b>\n\n"
+                f"Produk: <b>{kode}</b> - {p_new['nama']}\n"
+                f"Deskripsi lama: <code>{old_deskripsi}</code>\n"
+                f"Deskripsi baru: <b>{p_new['deskripsi']}</b>",
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_menu(update.effective_user.id)
+            )
 
-    # Conversation handler untuk menu interaktif
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(main_menu_callback)],
-        states={
-            CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
-            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
-            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, konfirmasi_step)],
-            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
-            ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
-        },
-        fallbacks=[
-            MessageHandler(Filters.regex('^(/batal|batal|BATAL|cancel)$'), cancel),
-            MessageHandler(Filters.command, cancel)
-        ],
-        allow_reentry=True
-    )
+        elif field == "resetcustom":
+            ok = reset_produk_custom(kode)
+            if ok:
+                update.message.reply_text(
+                    f"✅ Sukses reset custom produk <b>{kode}</b> ke default.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_menu(update.effective_user.id)
+                )
+            else:
+                update.message.reply_text(
+                    f"❌ Gagal reset custom produk <b>{kode}</b>.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_menu(update.effective_user.id)
+                )
 
-    # Handler untuk /start
-    dp.add_handler(CommandHandler("start", start))
-    # Handler untuk conversation (menu inline)
-    dp.add_handler(conv_handler)
-    # Handler untuk text bebas di luar conversation
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
+        else:
+            update.message.reply_text(
+                "❌ Field tidak dikenal.",
+                reply_markup=get_menu(update.effective_user.id)
+            )
 
-    print("Bot is running ...")
-    updater.start_polling()
-    updater.idle()
+    except Exception as e:
+        update.message.reply_text(
+            f"❌ <b>Gagal update produk!</b>\n"
+            f"Produk: <b>{kode}</b> - {p['nama']}\n"
+            f"Error: {str(e)}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=get_menu(update.effective_user.id)
+        )
 
-if __name__ == "__main__":
-    main()
+    finally:
+        context.user_data.pop("edit_kode", None)
+        context.user_data.pop("edit_field", None)
+
+    return ConversationHandler.END
