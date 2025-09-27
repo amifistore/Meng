@@ -28,6 +28,7 @@ def admin_edit_produk_step(update, context):
     try:
         if field == "harga":
             try:
+                # Bersihkan format harga (hilangkan . dan ,)
                 harga = int(value.replace(".", "").replace(",", ""))
                 if harga <= 0:
                     raise ValueError("Harga harus lebih dari 0.")
