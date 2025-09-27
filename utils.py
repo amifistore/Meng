@@ -67,3 +67,12 @@ def format_stock_akrab(json_data):
         msg += f"{kode} | {nama} | {slot}\n"
     msg += "</pre>"
     return msg
+    import random
+
+def get_nominal_unik(nominal, min_unik=1, max_unik=99):
+    """
+    Generate nominal unik untuk top up (nominal + angka unik random 1-99)
+    Return: total_nominal, kode_unik
+    """
+    kode_unik = random.randint(min_unik, max_unik)
+    return nominal + kode_unik, kode_unik
