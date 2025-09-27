@@ -55,8 +55,10 @@ def produk_inline_keyboard():
     produk_list = get_produk_list()
     keyboard = []
     for i, p in enumerate(produk_list):
+        status = "✅" if p.get("sisa_slot", p.get("kuota", 0)) > 0 else "❌"
+        label = f"{status} {p['nama']} | Rp {p['harga']:,}"
         keyboard.append([
-            InlineKeyboardButton(f"{p['kode']} | {p['nama']}", callback_data=f"produk_static|{i}")
+            InlineKeyboardButton(label, callback_data=f"produk_static|{i}")
         ])
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
