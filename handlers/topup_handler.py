@@ -1,4 +1,5 @@
 import base64
+import random
 from io import BytesIO
 from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
@@ -9,8 +10,16 @@ TOPUP_NOMINAL = 3
 # Path ke template QRIS PNG (background merah-putih dengan logo QRIS)
 QRIS_TEMPLATE_PATH = "qris_template.png"
 
-# QRIS statis merchant kamu (ambil dari config, produk, atau hardcode)
+# QRIS statis merchant (pastikan sesuai merchant kamu)
 QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506469550303UMI51440014ID.CO.QRIS.WWW0215ID10243341364120303UMI5204569753033605802ID5923Amifi Store, Kmb, TLGSR6009BONDOWOSO61056827262070703A01630431E8"
+
+def get_nominal_unik(nominal, min_unik=1, max_unik=99):
+    """
+    Generate nominal unik untuk top up (nominal + angka unik random 1-99)
+    Return: total_nominal, kode_unik
+    """
+    kode_unik = random.randint(min_unik, max_unik)
+    return nominal + kode_unik, kode_unik
 
 def make_qris_image(qris_base64, template_path=QRIS_TEMPLATE_PATH):
     """Gabungkan QR code ke atas template QRIS background merah-putih"""
@@ -46,7 +55,10 @@ def topup_nominal_step(update, context):
             update.message.reply_text("❌ Nominal minimal 10.000. Masukkan kembali nominal:")
             return TOPUP_NOMINAL
 
-        resp = generate_qris(nominal, QRIS_STATIS)
+        # Generate nominal unik
+        total_bayar, kode_unik = get_nominal_unik(nominal)
+
+        resp = generate_qris(total_bayar, QRIS_STATIS)
 
         if resp.get("status") != "success":
             update.message.reply_text(f"❌ Gagal generate QRIS: {resp.get('message', 'Unknown error')}")
@@ -54,7 +66,8 @@ def topup_nominal_step(update, context):
 
         qris_base64 = resp.get("qris_base64")
         msg = (
-            f"💰 Silakan lakukan pembayaran Top Up sebesar <b>Rp {nominal:,}</b>\n"
+            f"💰 Silakan lakukan pembayaran Top Up sebesar <b>Rp {total_bayar:,}</b>\n"
+            f"(Nominal unik: <b>{kode_unik:02d}</b>)\n"
             "Scan QRIS berikut (aktif 15 menit).\n\n"
             "Setelah bayar, kirim bukti transfer dan tunggu konfirmasi admin."
         )
