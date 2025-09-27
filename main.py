@@ -11,80 +11,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def get_current_pid():
-    """Get current process PID"""
-    return os.getpid()
-
-def stop_other_bots():
-    """Stop other bot instances without killing ourselves"""
-    current_pid = get_current_pid()
-    print(f"🔍 Current PID: {current_pid}")
-    
-    try:
-        # Find other Python processes running main.py
-        import subprocess
-        result = subprocess.run(['pgrep', '-f', 'python.*main.py'], 
-                              capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            pids = result.stdout.strip().split('\n')
-            for pid in pids:
-                if pid and pid.strip() and int(pid.strip()) != current_pid:
-                    print(f"🛑 Stopping other bot PID: {pid}")
-                    subprocess.run(['kill', pid.strip()])
-                    time.sleep(1)
-        else:
-            print("✅ No other bots running")
-            
-    except Exception as e:
-        print(f"⚠️ Error checking processes: {e}")
-
 def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
     print("=" * 50)
     
     try:
-        # Step 1: Stop OTHER bots only (not ourselves)
-        print("🔄 Step 1: Stopping other bot instances...")
-        stop_other_bots()
-        time.sleep(2)
-        
-        # Step 2: Import config
-        print("🔄 Step 2: Importing config...")
+        # Import config
         from config import TOKEN
         print(f"✅ Token loaded: {TOKEN[:10]}...")
         
-        # Step 3: Create updater
-        print("🔄 Step 3: Creating updater...")
+        # Create updater
         from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
         print("✅ Updater created")
         
-        # Step 4: Import and setup handlers
-        print("🔄 Step 4: Setting up handlers...")
-        
-        # Basic start command
-        from handlers.main_menu_handler import start, cancel
-        dp.add_handler(CommandHandler("start", start))
-        dp.add_handler(CommandHandler("cancel", cancel))
-        dp.add_handler(CommandHandler("batal", cancel))
-        print("✅ Command handlers added")
-        
-        # Callback handlers
-        from handlers.main_menu_handler import main_menu_callback
+        # Import handlers
+        from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
-        
-        dp.add_handler(CallbackQueryHandler(main_menu_callback))
-        dp.add_handler(CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|'))
-        print("✅ Callback handlers added")
-        
-        # Conversation handler
-        from handlers.main_menu_handler import INPUT_TUJUAN, KONFIRMASI
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
         
+        print("🔄 Setting up handlers...")
+        
+        # **FIXED: Use ConversationHandler as entry point for produk selection**
+        
+        # 1. Conversation Handler for PRODUCT ORDER (HIGHEST PRIORITY)
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|')],
             states={
@@ -92,19 +45,31 @@ def main():
                 KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
             },
             fallbacks=[CommandHandler('batal', cancel)],
-            allow_reentry=True
+            allow_reentry=True,
+            name="order_conversation"
         )
         dp.add_handler(order_conv_handler)
-        print("✅ Conversation handler added")
+        print("✅ Order conversation handler added")
         
-        # Step 5: Error handler
+        # 2. Main menu handler for other callbacks
+        main_handler = CallbackQueryHandler(main_menu_callback)
+        dp.add_handler(main_handler)
+        print("✅ Main menu handler added")
+        
+        # 3. Command handlers
+        dp.add_handler(CommandHandler("start", start))
+        dp.add_handler(CommandHandler("cancel", cancel))
+        dp.add_handler(CommandHandler("batal", cancel))
+        print("✅ Command handlers added")
+        
+        # Error handler
         def error_handler(update, context):
             logger.error(f"Error: {context.error}")
         
         dp.add_error_handler(error_handler)
         
-        # Step 6: Clean startup
-        print("🔄 Step 5: Cleaning previous state...")
+        # Clean startup
+        print("🔄 Cleaning previous state...")
         try:
             updater.bot.delete_webhook()
             print("✅ Webhook cleaned")
@@ -113,12 +78,12 @@ def main():
         
         time.sleep(1)
         
-        # Step 7: Start polling - FIXED PARAMETERS
-        print("🔄 Step 6: Starting polling...")
+        # Start polling
+        print("🔄 Starting polling...")
         updater.start_polling(
             poll_interval=1.0,
             timeout=30,
-            drop_pending_updates=True  # Hanya gunakan satu parameter
+            drop_pending_updates=True
         )
         
         print("=" * 50)
