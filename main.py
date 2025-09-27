@@ -38,24 +38,13 @@ def main():
         allow_reentry=True
     )
     
-    # Main menu conversation handler
-    main_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            CHOOSING_PRODUK: [CallbackQueryHandler(main_menu_callback)],
-            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
-            KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)],
-            TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, main_menu_callback)],
-            ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, main_menu_callback)]
-        },
-        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('batal', cancel)]
-    )
+    # Main menu callback handler
+    main_callback_handler = CallbackQueryHandler(main_menu_callback)
     
     # Add handlers
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(main_menu_callback))
+    dp.add_handler(main_callback_handler)
     dp.add_handler(order_conv_handler)
-    dp.add_handler(main_conv_handler)
     
     # Error handler
     dp.add_error_handler(error_handler)
