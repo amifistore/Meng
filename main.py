@@ -1,4 +1,3 @@
-from telegram import ParseMode
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -7,7 +6,6 @@ from telegram.ext import (
     Filters,
     ConversationHandler
 )
-from markup import get_menu
 from handlers.main_menu_handler import main_menu_callback, start, cancel
 from handlers.produk_pilih_handler import produk_pilih_callback
 from handlers.input_tujuan_handler import input_tujuan_step
