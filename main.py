@@ -7,11 +7,9 @@ from telegram.ext import (
     Filters,
     ConversationHandler
 )
-
-# Import handler dari modul handlers
-from handlers.main_menu_handler import main_menu_callback
+from markup import get_menu  # Fix NameError
+from handlers.main_menu_handler import main_menu_callback, start, cancel
 from handlers.produk_pilih_handler import produk_pilih_callback
-# ...other imports...
 from handlers.input_tujuan_handler import input_tujuan_step
 from handlers.konfirmasi_handler import konfirmasi_step
 from handlers.topup_handler import topup_nominal_step
@@ -19,23 +17,6 @@ from handlers.admin_edit_produk_handler import admin_edit_produk_step
 from handlers.text_handler import handle_text
 
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
-
-def start(update, context):
-    user = update.effective_user
-    update.message.reply_text(
-        f"Halo <b>{user.first_name}</b>!\nGunakan menu di bawah.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=get_menu(user.id)
-    )
-
-def cancel(update, context):
-    user = update.effective_user
-    context.user_data.clear()
-    update.message.reply_text(
-        "Operasi dibatalkan.",
-        reply_markup=get_menu(user.id)
-    )
-    return ConversationHandler.END
 
 def main():
     import os
