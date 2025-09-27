@@ -1,4 +1,5 @@
 from telegram import ParseMode
+from telegram.ext import ConversationHandler
 from markup import get_menu
 from produk import get_produk_by_kode, edit_produk
 
@@ -66,6 +67,7 @@ def admin_edit_produk_step(update, context):
                 "❌ Field tidak dikenal.",
                 reply_markup=get_menu(update.effective_user.id)
             )
+            return ADMIN_EDIT
     
     except Exception as e:
         update.message.reply_text(
@@ -75,6 +77,7 @@ def admin_edit_produk_step(update, context):
             parse_mode="HTML",
             reply_markup=get_menu(update.effective_user.id)
         )
+        return ADMIN_EDIT
     
     finally:
         context.user_data.pop("edit_kode", None)
