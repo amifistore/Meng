@@ -1,3 +1,5 @@
+import base64
+from io import BytesIO
 from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
 
@@ -20,11 +22,19 @@ def topup_nominal_step(update, context):
         qris_base64 = resp.get("qris_base64")
         msg = f"💰 Silakan lakukan pembayaran Top Up sebesar <b>Rp {nominal:,}</b>\n\nScan QRIS berikut:"
         if qris_base64:
-            update.message.reply_photo(
-                photo=f"data:image/png;base64,{qris_base64}", 
-                caption=msg, 
-                parse_mode="HTML"
-            )
+            try:
+                # Decode base64 ke bytes
+                img_bytes = base64.b64decode(qris_base64)
+                bio = BytesIO(img_bytes)
+                bio.name = "qris.png"
+                bio.seek(0)
+                update.message.reply_photo(
+                    photo=bio,
+                    caption=msg,
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                update.message.reply_text(f"❌ Error decode gambar QRIS: {str(e)}")
         else:
             update.message.reply_text(msg + "\n\n❌ QRIS tidak tersedia", parse_mode="HTML")
     except ValueError:
