@@ -1,60 +1,87 @@
 from telegram import ParseMode
 from telegram.ext import ConversationHandler
-from markup import get_menu, produk_inline_keyboard
-from produk import get_produk_list
-from utils import get_user_saldo
+from markup import get_menu
+from produk import get_produk_by_kode, edit_produk
 
-CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
+ADMIN_EDIT = 4
 
-def produk_pilih_callback(update, context):
-    query = update.callback_query
-    user = query.from_user
-    data = query.data
+def admin_edit_produk_step(update, context):
+    kode = context.user_data.get("edit_kode")
+    field = context.user_data.get("edit_field")
+    value = update.message.text.strip()
+    
+    if not kode or not field:
+        update.message.reply_text(
+            "❌ Kueri tidak valid. Silakan ulangi.",
+            reply_markup=get_menu(update.effective_user.id)
+        )
+        return ADMIN_EDIT
 
-    # FIX: safely answer the query, ignore errors if expired
+    p = get_produk_by_kode(kode)
+    if not p:
+        update.message.reply_text(
+            "❌ Produk tidak ditemukan.",
+            reply_markup=get_menu(update.effective_user.id)
+        )
+        return ADMIN_EDIT
+
     try:
-        query.answer()
-    except Exception:
-        pass
-
-    if data.startswith("produk_static|"):
-        try:
-            idx = int(data.split("|")[1])
-            produk_list = get_produk_list()
-            if idx < 0 or idx >= len(produk_list):
-                query.edit_message_text("❌ Produk tidak valid.", reply_markup=get_menu(user.id))
-                return ConversationHandler.END
-
-            p = produk_list[idx]
-            context.user_data["produk"] = p
-
-            # CEK SALDO USER
-            saldo = get_user_saldo(user.id)
-            if saldo < p['harga']:
-                query.edit_message_text(
-                    f"❌ Saldo kamu tidak cukup untuk order produk ini.\n"
-                    f"Produk: <b>{p['nama']}</b>\nHarga: Rp {p['harga']:,}\n"
-                    f"Saldo kamu: Rp {saldo:,}\n\n"
-                    "Silakan top up dahulu sebelum order.",
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=get_menu(user.id)
+        if field == "harga":
+            try:
+                # Bersihkan format harga (hilangkan . dan ,)
+                harga = int(value.replace(".", "").replace(",", ""))
+                if harga <= 0:
+                    raise ValueError("Harga harus lebih dari 0.")
+                old_harga = p["harga"]
+                edit_produk(kode, harga=harga)
+                p_new = get_produk_by_kode(kode)
+                update.message.reply_text(
+                    f"✅ <b>Harga produk berhasil diupdate!</b>\n\n"
+                    f"Produk: <b>{kode}</b> - {p_new['nama']}\n"
+                    f"Harga lama: <s>Rp {old_harga:,}</s>\n"
+                    f"Harga baru: <b>Rp {p_new['harga']:,}</b>\n"
+                    f"Deskripsi: {p_new['deskripsi']}",
+                    parse_mode="HTML",
+                    reply_markup=get_menu(update.effective_user.id)
                 )
-                return ConversationHandler.END
-
-            query.edit_message_text(
-                f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\nHarga: Rp {p['harga']:,}\nKuota: {p['kuota']}\n\nSilakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
-                parse_mode=ParseMode.HTML
+            except ValueError as e:
+                update.message.reply_text(
+                    f"❌ Format harga tidak valid: {str(e)}\nSilakan masukkan lagi:",
+                    parse_mode="HTML"
+                )
+                return ADMIN_EDIT
+        
+        elif field == "deskripsi":
+            old_deskripsi = p["deskripsi"]
+            edit_produk(kode, deskripsi=value)
+            p_new = get_produk_by_kode(kode)
+            update.message.reply_text(
+                f"✅ <b>Deskripsi produk berhasil diupdate!</b>\n\n"
+                f"Produk: <b>{kode}</b> - {p_new['nama']}\n"
+                f"Deskripsi lama: <code>{old_deskripsi}</code>\n"
+                f"Deskripsi baru: <b>{p_new['deskripsi']}</b>",
+                parse_mode="HTML",
+                reply_markup=get_menu(update.effective_user.id)
             )
-            return INPUT_TUJUAN  # Penting! Arahkan ke state berikutnya
-
-        except (ValueError, IndexError) as e:
-            query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
-            return ConversationHandler.END
-
-    elif data == "back_main":
-        query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
-        return ConversationHandler.END
-
-    else:
-        query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
-        return ConversationHandler.END
+        else:
+            update.message.reply_text(
+                "❌ Field tidak dikenal.",
+                reply_markup=get_menu(update.effective_user.id)
+            )
+            return ADMIN_EDIT
+    
+    except Exception as e:
+        update.message.reply_text(
+            f"❌ <b>Gagal update produk!</b>\n"
+            f"Produk: <b>{kode}</b> - {p['nama']}\n"
+            f"Error: {str(e)}",
+            parse_mode="HTML",
+            reply_markup=get_menu(update.effective_user.id)
+        )
+        return ADMIN_EDIT
+    
+    finally:
+        context.user_data.pop("edit_kode", None)
+        context.user_data.pop("edit_field", None)
+    
+    return ConversationHandler.END
