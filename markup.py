@@ -3,11 +3,9 @@ from config import ADMIN_IDS
 from produk import get_produk_list
 
 def is_admin(user_id):
-    """Cek apakah user adalah admin berdasarkan ADMIN_IDS dari config."""
     return user_id in ADMIN_IDS
 
 def menu_user():
-    """Menu utama untuk user biasa."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("📦 Lihat Produk", callback_data='lihat_produk'),
@@ -19,12 +17,11 @@ def menu_user():
         ],
         [
             InlineKeyboardButton("📄 Riwayat", callback_data='riwayat'),
-            InlineKeyboardButton("📊 Cek Stock XL/Axis", callback_data='stock_akrab')
+            InlineKeyboardButton("📊 Stock XL/Axis", callback_data='stock_akrab')
         ],
     ])
 
 def menu_admin():
-    """Menu utama untuk admin (fitur tambahan & layout modern)."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("📦 Produk", callback_data='lihat_produk'),
@@ -34,10 +31,10 @@ def menu_admin():
         [
             InlineKeyboardButton("📄 Riwayat", callback_data='riwayat'),
             InlineKeyboardButton("🔍 Cek Status", callback_data='cek_status'),
-            InlineKeyboardButton("📊 Stock XL/Axis", callback_data='stock_akrab')
+            InlineKeyboardButton("📊 Stock", callback_data='stock_akrab')
         ],
         [
-            InlineKeyboardButton("📝 Manajemen Produk", callback_data='manajemen_produk'),
+            InlineKeyboardButton("📝 Manage Produk", callback_data='manajemen_produk'),
             InlineKeyboardButton("🗃️ Semua Riwayat", callback_data='semua_riwayat')
         ],
         [
@@ -47,15 +44,13 @@ def menu_admin():
     ])
 
 def get_menu(user_id):
-    """Ambil menu sesuai role user."""
     return menu_admin() if is_admin(user_id) else menu_user()
 
 def produk_inline_keyboard():
-    """Tampilkan produk yang bisa dipilih user saat pembelian."""
     produk_list = get_produk_list()
     keyboard = []
     for i, p in enumerate(produk_list):
-        status = "✅" if p.get("sisa_slot", p.get("kuota", 0)) > 0 else "❌"
+        status = "✅" if p.get("kuota", 0) > 0 else "❌"
         label = f"{status} {p['nama']} | Rp {p['harga']:,}"
         keyboard.append([
             InlineKeyboardButton(label, callback_data=f"produk_static|{i}")
@@ -63,21 +58,7 @@ def produk_inline_keyboard():
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
 
-def admin_produk_list_keyboard():
-    """List produk untuk admin (edit produk)."""
-    produk_list = get_produk_list()
-    keyboard = []
-    for p in produk_list:
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{p['kode']} | {p['nama']} (Edit)", callback_data=f"admin_edit_produk|{p['kode']}"
-            )
-        ])
-    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")])
-    return InlineKeyboardMarkup(keyboard)
-
 def admin_edit_produk_keyboard(kode):
-    """Keyboard untuk edit produk di menu admin."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("💵 Edit Harga", callback_data=f"editharga|{kode}"),
@@ -85,6 +66,6 @@ def admin_edit_produk_keyboard(kode):
         ],
         [
             InlineKeyboardButton("🔄 Reset Custom", callback_data=f"resetcustom|{kode}"),
-            InlineKeyboardButton("⬅️ Kembali", callback_data="manajemen_produk")
+            InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")
         ]
     ])
