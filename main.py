@@ -7,7 +7,7 @@ from telegram.ext import (
     ConversationHandler
 )
 from handlers.main_menu_handler import main_menu_callback, start, cancel
-from handlers.produk_pilih_handler import produk_pilih_callback
+from handlers.produk_pilih_handler import produk_pilih_callback, input_tujuan_step
 
 CHOOSING_PRODUK, INPUT_TUJUAN = range(2)
 
@@ -19,10 +19,10 @@ def main():
     dp = updater.dispatcher
 
     conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(main_menu_callback)],
+        entry_points=[CommandHandler("start", start), CallbackQueryHandler(main_menu_callback)],
         states={
             CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
-            # tambahkan state lain jika perlu
+            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
         },
         fallbacks=[
             MessageHandler(Filters.regex('^(/batal|batal|cancel)$'), cancel),
@@ -31,7 +31,6 @@ def main():
         allow_reentry=True
     )
 
-    dp.add_handler(CommandHandler("start", start))
     dp.add_handler(conv_handler)
 
     print("Bot is running ...")
