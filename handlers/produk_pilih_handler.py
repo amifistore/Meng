@@ -4,13 +4,12 @@ from markup import get_menu
 from produk import get_produk_list
 from utils import get_user_saldo
 
-CHOOSING_PRODUK, INPUT_TUJUAN = range(2)
+CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
 
 def produk_pilih_callback(update, context):
     query = update.callback_query
     user = query.from_user
     data = query.data
-
     try:
         query.answer()
     except Exception:
@@ -40,32 +39,18 @@ def produk_pilih_callback(update, context):
                 return ConversationHandler.END
 
             query.edit_message_text(
-                f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\n"
-                f"Harga: Rp {p['harga']:,}\nKuota: {p.get('kuota', p.get('sisa_slot', 0))}\n\n"
-                "Silakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
+                f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\nHarga: Rp {p['harga']:,}\nKuota: {p['kuota']}\n\nSilakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
                 parse_mode=ParseMode.HTML
             )
-            return INPUT_TUJUAN
-        except Exception as e:
-            query.edit_message_text(f"❌ Error memilih produk: {e}", reply_markup=get_menu(user.id))
+            return INPUT_TUJUAN  # Penting! Arahkan ke state berikutnya
+        except (ValueError, IndexError) as e:
+            query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
             return ConversationHandler.END
 
-    else:
-        query.edit_message_text(
-            f"Menu tidak dikenal. Callback: <code>{data}</code>",
-            parse_mode=ParseMode.HTML,
-            reply_markup=get_menu(user.id)
-        )
+    elif data == "back_main":
+        query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
-def input_tujuan_step(update, context):
-    nomor = update.message.text.strip()
-    if not nomor.isdigit() or len(nomor) < 8:
-        update.message.reply_text("❌ Format nomor tujuan tidak valid. Coba lagi.")
-        return INPUT_TUJUAN
-    context.user_data["tujuan"] = nomor
-    produk = context.user_data.get("produk")
-    update.message.reply_text(
-        f"Konfirmasi Pesanan:\nProduk: {produk['nama']}\nNomor: {nomor}\n\nKetik YA untuk konfirmasi, atau /batal untuk batal."
-    )
-    return ConversationHandler.END  # Lanjutkan sesuai flow (bisa ke state KONFIRMASI kalau mau)
+    else:
+        query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
+        return ConversationHandler.END
