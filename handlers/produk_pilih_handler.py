@@ -1,7 +1,7 @@
 from telegram import ParseMode
 from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard
-from produk import get_produk_list, get_produk_by_kode
+from produk import get_produk_list
 from utils import get_user_saldo
 
 CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
@@ -11,13 +11,13 @@ def produk_pilih_callback(update, context):
     user = query.from_user
     data = query.data
 
-    # Answer callback safely
+    # Jawab callback dengan aman
     try:
         query.answer()
     except Exception:
         pass
 
-    # User chooses a product to buy
+    # Pemilihan produk dari tombol inline
     if data.startswith("produk_static|"):
         try:
             idx = int(data.split("|")[1])
@@ -29,7 +29,7 @@ def produk_pilih_callback(update, context):
             p = produk_list[idx]
             context.user_data["produk"] = p
 
-            # Check user balance
+            # Cek saldo user
             saldo = get_user_saldo(user.id)
             if saldo < p['harga']:
                 query.edit_message_text(
@@ -42,7 +42,7 @@ def produk_pilih_callback(update, context):
                 )
                 return ConversationHandler.END
 
-            # Success, ask for destination number
+            # Sukses, lanjut input tujuan
             query.edit_message_text(
                 f"✅ Produk yang dipilih:\n<b>{p['kode']}</b> - {p['nama']}\n"
                 f"Harga: Rp {p['harga']:,}\nKuota: {p.get('kuota', p.get('sisa_slot', 0))}\n\n"
@@ -50,17 +50,16 @@ def produk_pilih_callback(update, context):
                 parse_mode=ParseMode.HTML
             )
             return INPUT_TUJUAN
-
         except (ValueError, IndexError) as e:
             query.edit_message_text("❌ Error memilih produk.", reply_markup=get_menu(user.id))
             return ConversationHandler.END
 
-    # Back to main menu
+    # Tombol kembali ke menu utama
     elif data == "back_main":
         query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
-    # If callback is not recognized
+    # Callback lain yang tidak dikenali
     else:
         query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
         return ConversationHandler.END
