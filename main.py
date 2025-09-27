@@ -8,7 +8,7 @@ from telegram.ext import (
     ConversationHandler
 )
 
-# Import handler dari file lain atau definisikan langsung di sini
+# Import handler dari modul handlers
 from handlers.main_menu_handler import start, cancel, main_menu_callback
 from handlers.produk_pilih_handler import produk_pilih_callback
 from handlers.input_tujuan_handler import input_tujuan_step
@@ -17,18 +17,22 @@ from handlers.topup_handler import topup_nominal_step
 from handlers.admin_edit_produk_handler import admin_edit_produk_step
 from handlers.text_handler import handle_text
 
+# State untuk ConversationHandler
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
 
 def main():
     import os
 
-    # Ganti dengan token bot kamu
-    TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
+    # Load token dari config.py atau environment variable
+    try:
+        from config import TOKEN
+    except ImportError:
+        TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
 
     updater = Updater(token=TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Conversation handler
+    # Conversation handler untuk menu interaktif
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
@@ -45,16 +49,16 @@ def main():
         allow_reentry=True
     )
 
-    # Command /start
+    # Handler untuk /start
     dp.add_handler(CommandHandler("start", start))
-    # Conversation (all menu via inline button)
+    # Handler untuk conversation (menu inline)
     dp.add_handler(conv_handler)
-    # Handle text bebas di luar conversation
+    # Handler untuk text bebas di luar conversation
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
 
     print("Bot is running ...")
     updater.start_polling()
     updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
