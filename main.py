@@ -28,70 +28,16 @@ def main():
         dp = updater.dispatcher
         print("✅ Updater created")
         
-        # **FIXED: Direct imports tanpa melalui __init__.py**
-        from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT
+        # Import handlers
+        from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
         
         print("🔄 Setting up handlers...")
         
-        # GROUP 0: Specific pattern handlers (HIGHEST PRIORITY)
-        produk_handler = CallbackQueryHandler(
-            produk_pilih_callback, 
-            pattern=r'^produk_static\|'
-        )
-        dp.add_handler(produk_handler, group=0)
-        print("✅ Produk handler added (group 0)")
+        # **FIXED: Use ConversationHandler as entry point for produk selection**
         
-        # GROUP 1: Main menu handlers
-        def main_menu_filter(update):
-            """Filter untuk hanya menangani callback menu utama"""
-            query = update.callback_query
-            if not query:
-                return False
-                
-            data = query.data
-            # Hanya handle callback yang berupa menu utama
-            menu_patterns = [
-                'lihat_produk', 'beli_produk', 'topup', 'cek_status', 'riwayat', 'stock_akrab',
-                'semua_riwayat', 'lihat_saldo', 'tambah_saldo', 'manajemen_produk',
-                'admin_edit_produk', 'editharga', 'editdeskripsi', 'resetcustom',
-                'back_main', 'back_admin'
-            ]
-            
-            is_menu = any(data == pattern or data.startswith(pattern + '|') for pattern in menu_patterns)
-            print(f"🔍 [FILTER] Data: '{data}', Is menu: {is_menu}")
-            return is_menu
-        
-        main_handler = CallbackQueryHandler(main_menu_callback, pattern=main_menu_filter)
-        dp.add_handler(main_handler, group=1)
-        print("✅ Main menu handler added (group 1)")
-        
-        # GROUP 2: Fallback handler
-        def fallback_callback(update, context):
-            query = update.callback_query
-            user = query.from_user
-            data = query.data
-            
-            print(f"🔍 [FALLBACK] Unhandled callback: '{data}'")
-            
-            try:
-                query.answer()
-            except:
-                pass
-                
-            from markup import get_menu
-            query.edit_message_text(
-                f"❌ Menu tidak dikenali: `{data}`\n\nSilakan gunakan /start untuk memulai ulang.",
-                parse_mode="HTML",
-                reply_markup=get_menu(user.id)
-            )
-        
-        fallback_handler = CallbackQueryHandler(fallback_callback)
-        dp.add_handler(fallback_handler, group=2)
-        print("✅ Fallback handler added (group 2)")
-        
-        # Conversation handler for order process
+        # 1. Conversation Handler for PRODUCT ORDER (HIGHEST PRIORITY)
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|')],
             states={
@@ -105,7 +51,12 @@ def main():
         dp.add_handler(order_conv_handler)
         print("✅ Order conversation handler added")
         
-        # Command handlers
+        # 2. Main menu handler for other callbacks
+        main_handler = CallbackQueryHandler(main_menu_callback)
+        dp.add_handler(main_handler)
+        print("✅ Main menu handler added")
+        
+        # 3. Command handlers
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
