@@ -1,13 +1,11 @@
-import json
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard, admin_edit_produk_keyboard, is_admin
-from produk import get_produk_list, get_produk_by_kode, edit_produk
+from produk import get_produk_list, get_produk_by_kode, edit_produk, reset_produk_custom
 from provider import cek_stock_akrab
-from utils import get_user_saldo, set_user_saldo, format_stock_akrab  # FIX: gunakan fungsi saldo per user
-from handlers.riwayat_handler import riwayat_user, semua_riwayat
+from utils import format_stock_akrab, get_all_saldo
 
-CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
+# Remove problematic imports - akan dihandle oleh main.py
 
 def start(update, context):
     user = update.effective_user
@@ -31,23 +29,29 @@ def main_menu_callback(update, context):
     user = query.from_user
     data = query.data
 
-    # FIX: safely answer the query, ignore errors if expired
     try:
         query.answer()
     except Exception:
-        pass  # Do nothing if query is expired or invalid
+        pass
 
+    # Handle back buttons first
+    if data in ["back_main", "back_admin"]:
+        query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
+        return ConversationHandler.END
+
+    # Main menu handlers
     if data == 'lihat_produk':
         produk_list = get_produk_list()
-        msg = "<b>Daftar Produk:</b>\n"
+        msg = "<b>📦 Daftar Produk:</b>\n\n"
         for p in produk_list:
-            msg += f"<code>{p['kode']}</code> | {p['nama']} | <b>Rp {p['harga']:,}</b> | Kuota: {p['kuota']}\n"
+            status = "✅" if p.get("kuota", 0) > 0 else "❌"
+            msg += f"{status} <code>{p['kode']}</code> | {p['nama']} | <b>Rp {p['harga']:,}</b> | Stok: {p['kuota']}\n"
         query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
     elif data == 'beli_produk':
         query.edit_message_text(
-            "Pilih produk yang ingin dibeli:", 
+            "🛒 Pilih produk yang ingin dibeli:", 
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
@@ -55,58 +59,57 @@ def main_menu_callback(update, context):
 
     elif data == 'topup':
         query.edit_message_text(
-            "Masukkan nominal Top Up saldo yang diinginkan (minimal 10.000):\n\nKetik /batal untuk membatalkan.",
+            "💸 Masukkan nominal Top Up saldo (minimal 10.000):\n\nKetik /batal untuk membatalkan.",
             parse_mode=ParseMode.HTML
         )
         return TOPUP_NOMINAL
 
     elif data == 'cek_status':
         query.edit_message_text(
-            "Kirim format: <code>CEK|refid</code>\nContoh: <code>CEK|TRX123456</code>", 
+            "🔍 Kirim format: <code>CEK|refid</code>\nContoh: <code>CEK|TRX123456</code>", 
             parse_mode=ParseMode.HTML, 
             reply_markup=get_menu(user.id)
         )
         return ConversationHandler.END
 
     elif data == 'riwayat':
-        riwayat_user(query, context)
+        from handlers.riwayat_handler import riwayat_user
+        riwayat_user(update, context)
         return ConversationHandler.END
 
     elif data == 'stock_akrab':
         try:
             raw = cek_stock_akrab()
             msg = format_stock_akrab(raw)
-            if isinstance(msg, str) and msg.strip().lower().startswith("<html"):
-                msg = "❌ Provider membalas data tidak valid."
             query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         except Exception as e:
-            query.edit_message_text(f"❌ Error cek stock: {str(e)}", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
+            query.edit_message_text(f"❌ Error cek stock: {str(e)}", reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
+    # Admin functions
     elif data == 'semua_riwayat' and is_admin(user.id):
-        semua_riwayat(query, context)
+        from handlers.riwayat_handler import semua_riwayat
+        semua_riwayat(update, context)
         return ConversationHandler.END
 
     elif data == 'lihat_saldo' and is_admin(user.id):
-        # FIX saldo: tampilkan semua saldo user
-        from utils import get_all_saldo
         all_saldo = get_all_saldo()
-        msg = "<b>Saldo semua user:</b>\n"
+        msg = "<b>💰 Saldo Semua User:</b>\n\n"
         for uid, s in all_saldo.items():
-            msg += f"User <code>{uid}</code>: <b>Rp {s:,}</b>\n"
+            msg += f"👤 User <code>{uid}</code>: <b>Rp {s:,}</b>\n"
         query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
     elif data == 'tambah_saldo' and is_admin(user.id):
-        query.edit_message_text("Kirim format: <code>TAMBAH|user_id|jumlah</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
+        query.edit_message_text("💰 Kirim format: <code>TAMBAH|user_id|jumlah</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
     elif data == 'manajemen_produk' and is_admin(user.id):
         produk_list = get_produk_list()
-        msg = "<b>Manajemen Produk:</b>\n"
+        msg = "<b>📝 Manajemen Produk:</b>\n\n"
         keyboard = []
         for p in produk_list:
-            keyboard.append([InlineKeyboardButton(f"{p['kode']} | {p['nama']}", callback_data=f"admin_edit_produk|{p['kode']}")])
+            keyboard.append([InlineKeyboardButton(f"✏️ {p['kode']} | {p['nama']}", callback_data=f"admin_edit_produk|{p['kode']}")])
         keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")])
         query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
         return ConversationHandler.END
@@ -115,10 +118,13 @@ def main_menu_callback(update, context):
         kode = data.split("|")[1]
         p = get_produk_by_kode(kode)
         if not p:
-            query.edit_message_text("Produk tidak ditemukan.", reply_markup=get_menu(user.id))
+            query.edit_message_text("❌ Produk tidak ditemukan.", reply_markup=get_menu(user.id))
             return ConversationHandler.END
-        msg = (f"<b>Edit Produk {p['kode']}:</b>\n"
-               f"Nama: {p['nama']}\nHarga: Rp {p['harga']:,}\nKuota: {p['kuota']}\nDeskripsi: {p['deskripsi']}\n\n"
+        msg = (f"<b>✏️ Edit Produk {p['kode']}:</b>\n\n"
+               f"📦 Nama: {p['nama']}\n"
+               f"💰 Harga: Rp {p['harga']:,}\n"
+               f"📊 Stok: {p['kuota']}\n"
+               f"📝 Deskripsi: {p['deskripsi']}\n\n"
                "Pilih aksi edit di bawah:")
         query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=admin_edit_produk_keyboard(kode))
         context.user_data["edit_kode"] = kode
@@ -129,7 +135,7 @@ def main_menu_callback(update, context):
         context.user_data["edit_kode"] = kode
         context.user_data["edit_field"] = "harga"
         query.edit_message_text(
-            f"Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.", 
+            f💰 Masukkan harga baru untuk produk <b>{kode}</b> (angka):\n\nKetik /batal untuk membatalkan.", 
             parse_mode=ParseMode.HTML
         )
         return ADMIN_EDIT
@@ -139,13 +145,12 @@ def main_menu_callback(update, context):
         context.user_data["edit_kode"] = kode
         context.user_data["edit_field"] = "deskripsi"
         query.edit_message_text(
-            f"Masukkan deskripsi baru untuk produk <b>{kode}</b>:\n\nKetik /batal untuk membatalkan.", 
+            f"📝 Masukkan deskripsi baru untuk produk <b>{kode}</b>:\n\nKetik /batal untuk membatalkan.", 
             parse_mode=ParseMode.HTML
         )
         return ADMIN_EDIT
 
     elif data.startswith("resetcustom|") and is_admin(user.id):
-        from produk import reset_produk_custom
         kode = data.split("|")[1]
         ok = reset_produk_custom(kode)
         if ok:
@@ -154,14 +159,9 @@ def main_menu_callback(update, context):
             query.edit_message_text(f"❌ Gagal reset custom produk <b>{kode}</b>.", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
 
-    elif data == "back_admin":
-        query.edit_message_text("Kembali ke menu admin.", reply_markup=get_menu(user.id))
-        return ConversationHandler.END
-
-    elif data == "back_main":
-        query.edit_message_text("Kembali ke menu utama.", reply_markup=get_menu(user.id))
-        return ConversationHandler.END
-
     else:
-        query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
+        query.edit_message_text("❌ Menu tidak dikenal.", reply_markup=get_menu(user.id))
         return ConversationHandler.END
+
+# Define states
+CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
