@@ -1,4 +1,4 @@
-from .main_menu import (
+from .main_menu_handler import (
     start,
     cancel,
     main_menu_callback,
