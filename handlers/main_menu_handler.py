@@ -2,7 +2,7 @@ from telegram import ParseMode
 from telegram.ext import ConversationHandler
 from markup import get_menu, produk_inline_keyboard
 
-CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT = range(5)
+CHOOSING_PRODUK, INPUT_TUJUAN = range(2)
 
 def start(update, context):
     user = update.effective_user
@@ -13,17 +13,15 @@ def start(update, context):
     )
 
 def cancel(update, context):
-    user = update.effective_user
     context.user_data.clear()
     update.message.reply_text(
         "Operasi dibatalkan.",
-        reply_markup=get_menu(user.id)
+        reply_markup=get_menu(update.effective_user.id)
     )
     return ConversationHandler.END
 
 def main_menu_callback(update, context):
     query = update.callback_query
-    user = query.from_user
     data = query.data
 
     try:
@@ -37,14 +35,12 @@ def main_menu_callback(update, context):
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK  # <--- WAJIB! Agar handler produk aktif
-
-    # Tambahkan handler lain sesuai kebutuhan...
+        return CHOOSING_PRODUK  # INI FIXNYA! HARUS RETURN STATE PRODUK!
 
     else:
         query.edit_message_text(
             f"Menu tidak dikenal. Callback: <code>{data}</code>",
             parse_mode=ParseMode.HTML,
-            reply_markup=get_menu(user.id)
+            reply_markup=get_menu(query.from_user.id)
         )
         return ConversationHandler.END
