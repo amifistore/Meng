@@ -1,121 +1,87 @@
-import logging
+import os
 import sys
-import re
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
-from config import TOKEN
+import time
+import logging
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 
-# Setup logging
+# Setup basic logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG,  # Changed to DEBUG for more info
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('bot.log')
-    ]
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-def stop_bot():
-    import os
-    os.system("pkill -f 'python main.py'")
-    os.system("pkill -f 'python3 main.py'")
+def ensure_single_instance():
+    """Ensure only one instance of the bot is running"""
+    import psutil
+    current_pid = os.getpid()
+    current_script = os.path.abspath(__file__)
+    
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if (proc.info['pid'] != current_pid and 
+                proc.info['cmdline'] and 
+                'main.py' in ' '.join(proc.info['cmdline'])):
+                print(f"⚠️ Found existing bot process PID {proc.info['pid']}, terminating it...")
+                proc.terminate()
+                proc.wait(timeout=5)
+        except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+            pass
 
 def main():
     try:
-        stop_bot()
-        import time
+        # Ensure single instance
+        ensure_single_instance()
         time.sleep(2)
         
-        print("🚀 Starting bot with DEBUG mode...")
+        print("🚀 Initializing bot...")
         
-        updater = Updater(
-            TOKEN, 
-            use_context=True,
-            request_kwargs={
-                'read_timeout': 30, 
-                'connect_timeout': 30,
-            }
-        )
+        # Import config
+        from config import TOKEN
+        
+        # Create updater
+        updater = Updater(TOKEN, use_context=True)
         
         # Import handlers
+        from handlers.main_menu_handler import start, cancel
         from markup import get_menu
-        from handlers.main_menu_handler import main_menu_callback, start, cancel, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI, TOPUP_NOMINAL, ADMIN_EDIT
-        from handlers.produk_pilih_handler import produk_pilih_callback
-        from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
-        from debug_handler import debug_callback
         
         dp = updater.dispatcher
         
-        try:
-            updater.bot.delete_webhook()
-            print("✅ Webhook deleted")
-        except Exception as e:
-            print(f"ℹ️ No webhook to delete: {e}")
-        
-        # **FIXED: SINGLE CATCH-ALL HANDLER FIRST**
-        debug_handler = CallbackQueryHandler(debug_callback, pattern='.*')
-        
-        # **FIXED: SIMPLIFIED PATTERN MATCHING**
-        produk_handler = CallbackQueryHandler(
-            produk_pilih_callback, 
-            pattern=r'^produk_static\|'
-        )
-        
-        main_handler = CallbackQueryHandler(
-            main_menu_callback,
-            pattern=r'^(lihat_produk|beli_produk|topup|cek_status|riwayat|stock_akrab|semua_riwayat|lihat_saldo|tambah_saldo|manajemen_produk|admin_edit_produk\||editharga\||editdeskripsi\||resetcustom\||back_main|back_admin)$'
-        )
-        
-        # **PRIORITY: Debug handler dulu, lalu specific handlers**
-        dp.add_handler(debug_handler, group=0)
-        dp.add_handler(produk_handler, group=1)
-        dp.add_handler(main_handler, group=1)
-        
-        # Command handlers
+        # Basic command handlers
         dp.add_handler(CommandHandler("start", start))
-        dp.add_handler(CommandHandler("debug", lambda u,c: debug_callback(u,c)))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
         
-        # Conversation handler
-        order_conv_handler = ConversationHandler(
-            entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\|')],
-            states={
-                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
-                KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
-            },
-            fallbacks=[CommandHandler('batal', cancel)],
-            allow_reentry=True
-        )
-        dp.add_handler(order_conv_handler)
-        
+        # Simple error handler
         def error_handler(update, context):
-            logger.error(f"Error: {context.error}", exc_info=context.error)
-            if update and update.effective_user:
-                update.effective_message.reply_text(
-                    "❌ Terjadi error sistem. Silakan coba lagi.",
-                    reply_markup=get_menu(update.effective_user.id)
-                )
+            logger.error(f"Error: {context.error}")
         
         dp.add_error_handler(error_handler)
         
-        # Start polling
-        print("✅ Starting polling...")
+        # Start with clean state
+        print("🔄 Cleaning previous state...")
+        updater.bot.delete_webhook()
+        time.sleep(1)
+        
+        print("🤖 Starting bot polling...")
         updater.start_polling(
-            poll_interval=0.5,
+            poll_interval=1,
             timeout=20,
             clean=True,
             drop_pending_updates=True
         )
         
-        print("🤖 Bot successfully started in DEBUG mode!")
-        print("📍 Press Ctrl+C to stop the bot")
+        print("✅ Bot is now running!")
+        print("📍 Press Ctrl+C to stop")
         
+        # Keep running
         updater.idle()
         
     except Exception as e:
-        logger.error(f"Failed to start bot: {e}")
+        logger.error(f"Failed to start: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':
+    print("🔧 Bot starting...")
     main()
