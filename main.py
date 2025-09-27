@@ -11,15 +11,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_current_pid():
+    """Get current process PID"""
+    return os.getpid()
+
+def stop_other_bots():
+    """Stop other bot instances without killing ourselves"""
+    current_pid = get_current_pid()
+    print(f"🔍 Current PID: {current_pid}")
+    
+    try:
+        # Find other Python processes running main.py
+        import subprocess
+        result = subprocess.run(['pgrep', '-f', 'python.*main.py'], 
+                              capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid and pid.strip() and int(pid.strip()) != current_pid:
+                    print(f"🛑 Stopping other bot PID: {pid}")
+                    subprocess.run(['kill', pid.strip()])
+                    time.sleep(1)
+        else:
+            print("✅ No other bots running")
+            
+    except Exception as e:
+        print(f"⚠️ Error checking processes: {e}")
+
 def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
     print("=" * 50)
     
     try:
-        # Step 1: Stop any existing bots gently
-        print("🔄 Step 1: Checking for existing bots...")
-        os.system("pkill -f 'python main.py' 2>/dev/null")
+        # Step 1: Stop OTHER bots only (not ourselves)
+        print("🔄 Step 1: Stopping other bot instances...")
+        stop_other_bots()
         time.sleep(2)
         
         # Step 2: Import config
@@ -92,6 +120,8 @@ def main():
     except Exception as e:
         logger.error(f"❌ Failed to start: {e}")
         print(f"💡 Error details: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == '__main__':
