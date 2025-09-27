@@ -35,5 +35,5 @@ def admin_edit_produk_keyboard(kode):
     return InlineKeyboardMarkup(keyboard)
 
 def is_admin(user_id):
-    admin_ids = [123456789, 111222333]  # Ganti sesuai user admin kamu
+    admin_ids = [123456789, 111222333]  # Ganti dengan user ID admin kamu
     return user_id in admin_ids
