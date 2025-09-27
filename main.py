@@ -1,3 +1,4 @@
+import json
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -7,22 +8,26 @@ from telegram.ext import (
     ConversationHandler
 )
 from handlers.main_menu_handler import main_menu_callback, start, cancel
-from handlers.produk_pilih_handler import produk_pilih_callback, input_tujuan_step
+from handlers.produk_pilih_handler import produk_pilih_callback
 
 CHOOSING_PRODUK, INPUT_TUJUAN = range(2)
 
+def load_token_from_config():
+    with open("config.json", "r") as f:
+        data = json.load(f)
+        return data["TOKEN"]
+
 def main():
-    import os
-    TOKEN = os.environ.get("BOT_TOKEN") or "YOUR_BOT_TOKEN"
+    TOKEN = load_token_from_config()
 
     updater = Updater(token=TOKEN, use_context=True)
     dp = updater.dispatcher
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start), CallbackQueryHandler(main_menu_callback)],
+        entry_points=[CallbackQueryHandler(main_menu_callback)],
         states={
             CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback)],
-            INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
+            # tambahkan state lain jika perlu
         },
         fallbacks=[
             MessageHandler(Filters.regex('^(/batal|batal|cancel)$'), cancel),
@@ -31,6 +36,7 @@ def main():
         allow_reentry=True
     )
 
+    dp.add_handler(CommandHandler("start", start))
     dp.add_handler(conv_handler)
 
     print("Bot is running ...")
