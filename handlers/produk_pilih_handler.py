@@ -81,6 +81,7 @@ def admin_edit_produk_step(update, context):
         return ADMIN_EDIT
     
     finally:
+        # Hapus sesi edit agar tidak nyangkut di user_data
         context.user_data.pop("edit_kode", None)
         context.user_data.pop("edit_field", None)
     
