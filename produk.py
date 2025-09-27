@@ -161,35 +161,6 @@ def edit_produk(kode, harga=None, deskripsi=None):
         logger.error(f"Error editing product {kode}: {e}")
         return False
 
-def format_list_stok_fixed():
-    try:
-        items = get_list_stok_fixed()
-        msg = "<b>Daftar Produk Tersedia:</b>\n\n"
-        for item in items:
-            status = "✅ Tersedia" if item['sisa_slot'] > 0 else "❌ Habis"
-            msg += f"<code>{item['kode']}</code> | {item['nama']}\n"
-            msg += f"💰 Rp {item['harga']:,} | 📦 {item['sisa_slot']} slot | {status}\n"
-            msg += f"📝 {item['deskripsi']}\n\n"
-        return msg
-    except Exception as e:
-        logger.error(f"Error formatting product list: {e}")
-        return "❌ Gagal memuat daftar produk."
-
-def get_produk_list_for_admin():
-    try:
-        products = get_list_stok_fixed()
-        custom_data = get_all_custom_produk()
-        result = []
-        for p in products:
-            kode = p["kode"].lower()
-            product_info = p.copy()
-            product_info["is_customized"] = kode in custom_data
-            result.append(product_info)
-        return result
-    except Exception as e:
-        logger.error(f"Error getting product list for admin: {e}")
-        return []
-
 def reset_produk_custom(kode):
     try:
         kode = kode.lower()
