@@ -51,7 +51,7 @@ def main_menu_callback(update, context):
             reply_markup=produk_inline_keyboard()
         )
         context.user_data.clear()
-        return CHOOSING_PRODUK
+        return CHOOSING_PRODUK   # <-- Penting! agar handler produk_pilih_callback aktif
 
     elif data == 'topup':
         query.edit_message_text(
@@ -163,5 +163,6 @@ def main_menu_callback(update, context):
         return ConversationHandler.END
 
     else:
-        query.edit_message_text("Menu tidak dikenal.", reply_markup=get_menu(user.id))
+        # Debug callback: tampilkan callback yang tidak dikenali
+        query.edit_message_text(f"Menu tidak dikenal. Callback: <code>{data}</code>", parse_mode=ParseMode.HTML, reply_markup=get_menu(user.id))
         return ConversationHandler.END
