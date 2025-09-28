@@ -26,9 +26,12 @@ def main():
         )
 
         # === Import all handlers and states from handlers/ ===
-        from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
+        from handlers.main_menu_handler import (
+            start, cancel, main_menu_callback,
+            CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
+        )
         from handlers.produk_pilih_handler import produk_pilih_callback
-        from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
+        from handlers.order_handler import input_tujuan_step, handle_konfirmasi
         from handlers.topup_handler import (
             topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
             admin_topup_list_callback, admin_topup_detail_callback
@@ -51,13 +54,16 @@ def main():
 
         print("🔄 Setting up handlers...")
 
-        # === Order Conversation ===
+        # === Order Produk Conversation ===
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$')],
             states={
                 CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
-                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
-                KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
+                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
+                KONFIRMASI: [
+                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order)$'),
+                    MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)
+                ]
             },
             fallbacks=[CommandHandler('batal', cancel)],
             allow_reentry=True,
@@ -71,19 +77,19 @@ def main():
             states={
                 TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
             },
-            fallbacks=[],
+            fallbacks=[CommandHandler('batal', cancel)],
             allow_reentry=True,
             name="topup_conversation"
         )
         dp.add_handler(topup_conv_handler)
 
-        # === Status Conversation ===
+        # === Status Cek Conversation ===
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
             states={
                 INPUT_REFID: [MessageHandler(Filters.text & ~Filters.command, input_refid_step)],
             },
-            fallbacks=[],
+            fallbacks=[CommandHandler('batal', cancel)],
             allow_reentry=True,
             name="status_conversation"
         )
@@ -98,7 +104,7 @@ def main():
             states={
                 4: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
             },
-            fallbacks=[],
+            fallbacks=[CommandHandler('batal', cancel)],
             allow_reentry=True,
             name="admin_edit_conversation"
         )
@@ -117,11 +123,11 @@ def main():
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_main$'))
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_admin$'))
 
-        # === Handler untuk Approve/Batal Topup Admin ===
+        # === Handler Approve/Batal Topup Admin ===
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_batal|'))
 
-        # === Handler untuk Riwayat Top Up User (Admin) ===
+        # === Handler Riwayat Top Up User (Admin) ===
         dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern='^riwayat_topup_admin$'))
         dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern='^admin_topup_detail\\|'))
 
@@ -133,6 +139,7 @@ def main():
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
 
+        # === Error logging handler ===
         def error_handler(update, context):
             err_msg = f"Error: {context.error}"
             logger.error(err_msg)
