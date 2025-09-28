@@ -24,6 +24,12 @@ def main():
             Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         )
         # Import all handlers and states from handlers/
+        from saldo import init_db as init_saldo_db
+        from topup import init_db as init_topup_db
+        # Inisialisasi DB pada start
+        init_saldo_db()
+        init_topup_db()
+
         from handlers.main_menu_handler import (
             start, cancel, main_menu_callback,
             CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
@@ -34,7 +40,7 @@ def main():
             topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
             admin_topup_list_callback, admin_topup_detail_callback
         )
-        from handlers.riwayat_handler import riwayat_callback
+        from handlers.riwayat_handler import riwayat_callback, semua_riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
         from handlers.admin_produk_handler import (
@@ -59,7 +65,7 @@ def main():
                 CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
                 INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
                 KONFIRMASI: [
-                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order)$'),
+                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order|order_konfirmasi|order_batal)$'),
                     MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)
                 ]
             },
@@ -113,6 +119,7 @@ def main():
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
         dp.add_handler(CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
+        dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern='^semua_riwayat$'))
         dp.add_handler(CallbackQueryHandler(stock_akrab_callback, pattern='^stock_akrab$'))
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
