@@ -80,3 +80,38 @@ def get_riwayat_topup_user(user_id, limit=10):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+def cari_riwayat_topup(user_id=None, status=None, tanggal=None, min_nominal=None, max_nominal=None, limit=20):
+    conn = get_conn()
+    cur = conn.cursor()
+    query = "SELECT id, user_id, nominal, status, waktu, admin_id FROM topup WHERE 1=1"
+    params = []
+    if user_id:
+        query += " AND user_id=?"
+        params.append(user_id)
+    if status:
+        query += " AND status=?"
+        params.append(status)
+    if tanggal:
+        query += " AND waktu LIKE ?"
+        params.append(f"%{tanggal}%")
+    if min_nominal:
+        query += " AND nominal>=?"
+        params.append(min_nominal)
+    if max_nominal:
+        query += " AND nominal<=?"
+        params.append(max_nominal)
+    query += " ORDER BY waktu DESC LIMIT ?"
+    params.append(limit)
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_all_topup_user_ids():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT user_id FROM topup")
+    rows = cur.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
