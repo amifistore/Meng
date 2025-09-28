@@ -75,7 +75,6 @@ def topup_nominal_step(update, context):
         update.message.reply_text(f"❌ Error: {str(e)}")
     return ConversationHandler.END
 
-# ========== FIXED: Handler untuk tombol Top Up di menu ==========
 def topup_callback(update, context):
     query = update.callback_query
     query.answer()
@@ -84,5 +83,5 @@ def topup_callback(update, context):
         "Contoh: <code>25000</code>",
         parse_mode="HTML"
     )
-    # Set state ke step input nominal jika pakai ConversationHandler
+    # Kembalikan state agar ConversationHandler lanjut ke step nominal
     return TOPUP_NOMINAL
