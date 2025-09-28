@@ -78,10 +78,24 @@ def topup_nominal_step(update, context):
 def topup_callback(update, context):
     query = update.callback_query
     query.answer()
-    query.edit_message_text(
-        "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
-        "Contoh: <code>25000</code>",
-        parse_mode="HTML"
-    )
+    try:
+        # Agar tidak error "Message is not modified", tambahkan sedikit variasi pesan (misal, timestamp atau emoji acak)
+        import time
+        unique_id = int(time.time())
+        new_text = (
+            "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
+            "Contoh: <code>25000</code>\n"
+            f"Kode unik: <code>{unique_id}</code>"
+        )
+        query.edit_message_text(
+            new_text,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        if "Message is not modified" in str(e):
+            # Abaikan error ini, tidak fatal
+            pass
+        else:
+            raise
     # Kembalikan state agar ConversationHandler lanjut ke step nominal
     return TOPUP_NOMINAL
