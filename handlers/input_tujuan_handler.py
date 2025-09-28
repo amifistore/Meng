@@ -43,16 +43,15 @@ def input_tujuan_step(update, context):
     )
     return KONFIRMASI
 
-# Tambahkan di handler konfirmasi:
 def handle_konfirmasi(update, context):
-    query = update.callback_query
-    if query:
+    # Handler untuk tombol inline dan fallback teks
+    if update.callback_query:
+        query = update.callback_query
         query.answer()
         data = query.data
         if data == "konfirmasi_order":
-            # Proses order
             query.edit_message_text("✅ Pesanan kamu berhasil dikonfirmasi dan sedang diproses.", parse_mode=ParseMode.HTML)
-            # Lanjut proses order di sini
+            # Proses order di sini (misal: request API, simpan DB, dsb)
             return ConversationHandler.END
         elif data == "batal_order":
             query.edit_message_text("❌ Pesanan dibatalkan.", reply_markup=get_menu(query.from_user.id))
@@ -66,9 +65,10 @@ def handle_konfirmasi(update, context):
         if text == "ya":
             update.message.reply_text("✅ Pesanan kamu berhasil dikonfirmasi dan sedang diproses.", parse_mode=ParseMode.HTML)
             # Proses order di sini
+            return ConversationHandler.END
         elif text == "batal":
             update.message.reply_text("❌ Pesanan dibatalkan.", reply_markup=get_menu(update.effective_user.id))
+            return ConversationHandler.END
         else:
-            update.message.reply_text("❌ Jawaban tidak valid. Ketik 'YA' untuk konfirmasi atau 'BATAL' untuk membatalkan.")
+            update.message.reply_text("❌ Jawaban tidak valid. Klik tombol Konfirmasi/Batal atau ketik 'YA'/'BATAL'.")
             return KONFIRMASI
-        return ConversationHandler.END
