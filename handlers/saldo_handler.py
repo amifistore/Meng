@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CallbackContext, ConversationHandler
-from utils import get_user_saldo, tambah_user_saldo, load_riwayat
+from saldo import get_saldo_user, tambah_saldo_user, get_riwayat_saldo
 from markup import get_menu, is_admin
 
 # State untuk ConversationHandler
@@ -9,7 +9,7 @@ INPUT_SALDO_USERID, INPUT_SALDO_USERNAME, INPUT_SALDO_CHOOSE_USER, INPUT_SALDO_N
 def lihat_saldo_callback(update: Update, context: CallbackContext):
     user = update.callback_query.from_user
     update.callback_query.answer()
-    saldo = get_user_saldo(user.id)
+    saldo = get_saldo_user(user.id)
     msg = f"💰 Saldo Anda saat ini: <b>Rp {saldo:,}</b>"
     update.callback_query.edit_message_text(
         msg,
@@ -28,11 +28,13 @@ def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
             reply_markup=get_menu(user.id)
         )
         return ConversationHandler.END
-    all_riwayat = load_riwayat()
+    # Ambil user-user yang pernah transaksi dari riwayat saldo DB
+    riwayat_user = {}
+    for row in get_riwayat_saldo(None, admin_mode=True):
+        riwayat_user[row[1]] = True
     keyboard = []
-    for user_id, trans_list in all_riwayat.items():
-        username = trans_list[-1].get("username", "unknown") if trans_list else "unknown"
-        keyboard.append([InlineKeyboardButton(f"{username} ({user_id})", callback_data=f"chooseuser|{user_id}")])
+    for user_id in riwayat_user.keys():
+        keyboard.append([InlineKeyboardButton(f"UserID: {user_id}", callback_data=f"chooseuser|{user_id}")])
     if not keyboard:
         update.callback_query.edit_message_text(
             "❌ Tidak ada user yang pernah bertransaksi.",
@@ -70,8 +72,8 @@ def tambah_saldo_nominal_input(update: Update, context: CallbackContext):
         return INPUT_SALDO_NOMINAL
     nominal = int(text.replace(".", "").replace(",", ""))
     user_id = context.user_data.get('tambah_saldo_user_id')
-    tambah_user_saldo(user_id, nominal)
-    saldo = get_user_saldo(user_id)
+    tambah_saldo_user(user_id, nominal, tipe="admin", keterangan="Tambah saldo manual admin")
+    saldo = get_saldo_user(user_id)
     update.message.reply_text(
         f"✅ Saldo user <code>{user_id}</code> berhasil ditambah Rp {nominal:,}!\nSaldo sekarang: <b>Rp {saldo:,}</b>",
         parse_mode="HTML"
