@@ -2,6 +2,7 @@ import base64
 import random
 import time
 from io import BytesIO
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
 from PIL import Image
@@ -10,6 +11,7 @@ TOPUP_NOMINAL = 3
 
 QRIS_TEMPLATE_PATH = "qris_template.png"
 QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506469550303UMI51440014ID.CO.QRIS.WWW0215ID10243341364120303UMI5204569753033605802ID5923Amifi Store, Kmb, TLGSR6009BONDOWOSO61056827262070703A01630431E8"
+ADMIN_CHAT_ID = 1234567890  # Ganti dengan chat_id Admin atau grup admin Anda
 
 def log_topup_error(error_text):
     with open("topup_error.log", "a") as f:
@@ -38,7 +40,6 @@ def make_qris_image(qris_base64, template_path=QRIS_TEMPLATE_PATH):
         return None
 
 def safe_edit_message(query, new_text, reply_markup=None, parse_mode=None):
-    # Hindari error Message is not modified
     try:
         prev_text = query.message.text if query.message and query.message.text else ""
         prev_markup = query.message.reply_markup if query.message else None
@@ -63,9 +64,36 @@ def topup_callback(update, context):
     safe_edit_message(query, new_text, parse_mode="HTML")
     return TOPUP_NOMINAL
 
+def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id):
+    text = (
+        f"💸 <b>TOP UP BARU</b>\n"
+        f"User: <code>{user.id}</code> ({user.full_name})\n"
+        f"Username: @{user.username}\n"
+        f"Nominal: <b>Rp {nominal:,}</b>\n"
+        f"Total bayar (kode unik): <b>Rp {total_bayar:,}</b> (unik: <b>{kode_unik:02d}</b>)\n"
+        f"TopUp ID: <code>{topup_id}</code>\n"
+        f"Waktu: <code>{time.strftime('%Y-%m-%d %H:%M:%S')}</code>\n"
+        "🔔 Menunggu user upload bukti transfer.\n"
+        "<b>Aksi Admin:</b>"
+    )
+    buttons = [
+        [
+            InlineKeyboardButton("✅ Approve", callback_data=f"topup_approve|{topup_id}|{user.id}"),
+            InlineKeyboardButton("❌ Batal", callback_data=f"topup_batal|{topup_id}|{user.id}")
+        ]
+    ]
+    try:
+        context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log_topup_error(f"notify_admin_topup error: {e}")
+
 def topup_nominal_step(update, context):
     try:
-        # Aman akses text
         text = ""
         if update.message and update.message.text:
             text = update.message.text.strip()
@@ -126,6 +154,18 @@ def topup_nominal_step(update, context):
         else:
             log_topup_error("QRIS base64 kosong")
             update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")
+
+        # === NOTIFIKASI ADMIN + TOMBOL ===
+        topup_id = str(int(time.time())) + str(update.effective_user.id)
+        notify_admin_topup(
+            context,
+            update.effective_user,
+            nominal,
+            total_bayar,
+            kode_unik,
+            topup_id,
+        )
+
     except Exception as e:
         log_topup_error(f"topup_nominal_step error: {str(e)}")
         try:
@@ -133,3 +173,30 @@ def topup_nominal_step(update, context):
         except Exception:
             pass
     return ConversationHandler.END
+
+def admin_topup_callback(update, context):
+    query = update.callback_query
+    query.answer()
+    data = query.data
+    if data.startswith("topup_approve|"):
+        _, topup_id, user_id = data.split("|")
+        query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
+        try:
+            context.bot.send_message(
+                chat_id=int(user_id),
+                text=f"✅ Top Up kamu telah diapprove admin! Saldo akan diproses.",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            log_topup_error(f"ERROR kirim ke user: {e}")
+    elif data.startswith("topup_batal|"):
+        _, topup_id, user_id = data.split("|")
+        query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")
+        try:
+            context.bot.send_message(
+                chat_id=int(user_id),
+                text=f"❌ Top Up kamu dibatalkan admin. Silakan ulangi jika ingin coba lagi.",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            log_topup_error(f"ERROR kirim ke user: {e}")
