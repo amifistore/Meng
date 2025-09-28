@@ -23,15 +23,12 @@ def main():
         from telegram.ext import (
             Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         )
-        
-        # ✅ PERBAIKAN 1: HAPUS INIT DB MANUAL - karena sudah auto-init
-        # Database akan otomatis initialize ketika module di-import
-        print("🔄 Initializing database modules...")
-        
-        # Import module untuk trigger auto-init
-        from saldo import get_saldo_user  # Ini akan trigger init_db_saldo
-        from riwayat import cari_riwayat_order  # Ini akan trigger init_db_riwayat
-        print("✅ Database modules initialized")
+        # Import all handlers and states from handlers/
+        from saldo import init_db as init_saldo_db
+        from topup import init_db as init_topup_db
+        # Inisialisasi DB pada start
+        init_saldo_db()
+        init_topup_db()
 
         from handlers.main_menu_handler import (
             start, cancel, main_menu_callback,
