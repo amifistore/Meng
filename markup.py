@@ -7,7 +7,6 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 def menu_user(user_id):
-    # Tambahkan info user, saldo dan riwayat transaksi user di atas menu tombol
     info_text = f"🆔 <b>ID User:</b> <code>{user_id}</code>\n"
     saldo = get_saldo_user(user_id)
     info_text += f"💰 <b>Saldo:</b> Rp {saldo:,}\n"
@@ -41,7 +40,6 @@ def menu_user(user_id):
     return info_text, InlineKeyboardMarkup(keyboard)
 
 def menu_admin(user_id):
-    # Admin juga bisa lihat info user mereka sendiri
     info_text = f"🆔 <b>ID Admin:</b> <code>{user_id}</code>\n"
     saldo = get_saldo_user(user_id)
     info_text += f"💰 <b>Saldo:</b> Rp {saldo:,}\n"
