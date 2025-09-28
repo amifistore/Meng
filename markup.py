@@ -1,239 +1,157 @@
-# markup.py - VERSI FIX
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-import logging
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-logger = logging.getLogger(__name__)
+# ========== INLINE KEYBOARDS ==========
 
-def is_admin(user_id):
-    """Cek apakah user adalah admin"""
-    try:
-        from config import ADMIN_IDS
-        return user_id in ADMIN_IDS
-    except Exception as e:
-        logger.error(f"Error checking admin: {e}")
-        return False
+def main_menu_markup(is_admin=False):
+    buttons = [
+        [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
+        [InlineKeyboardButton("💳 Top Up Saldo", callback_data="topup")],
+        [InlineKeyboardButton("📦 Cek Stock", callback_data="stock_akrab")],
+        [InlineKeyboardButton("📋 Riwayat Transaksi", callback_data="riwayat")],
+        [InlineKeyboardButton("💰 Lihat Saldo", callback_data="lihat_saldo")],
+        [InlineKeyboardButton("🔍 Cek Status", callback_data="cek_status")],
+    ]
+    if is_admin:
+        buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
+    return InlineKeyboardMarkup(buttons)
 
-def get_saldo_user_safe(user_id):
-    """Ambil saldo user dengan error handling"""
-    try:
-        from saldo import get_saldo_user
-        return get_saldo_user(user_id)
-    except Exception as e:
-        logger.error(f"Error getting saldo: {e}")
-        return 0
+def admin_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("📝 Manajemen Produk", callback_data="manajemen_produk")],
+        [InlineKeyboardButton("💳 Approve Topup", callback_data="riwayat_topup_admin")],
+        [InlineKeyboardButton("👤 Tambah Saldo User", callback_data="tambah_saldo")],
+        [InlineKeyboardButton("🏠 Kembali ke Main Menu", callback_data="back_main")],
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-def get_riwayat_saldo_safe(user_id, limit=3):
-    """Ambil riwayat saldo dengan error handling"""
-    try:
-        from saldo import get_riwayat_saldo
-        return get_riwayat_saldo(user_id, limit)
-    except Exception as e:
-        logger.error(f"Error getting riwayat: {e}")
-        return []
+def produk_kategori_markup(kategori_list):
+    buttons = [[InlineKeyboardButton(kategori['nama'], callback_data=f"category|{kategori['id']}")] for kategori in kategori_list]
+    buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
+    return InlineKeyboardMarkup(buttons)
 
-def get_produk_list_safe():
-    """Ambil daftar produk dengan error handling"""
-    try:
-        # Coba berbagai sumber produk
-        try:
-            from provider import list_product
-            produk = list_product()
-            if produk:
-                return produk
-        except ImportError:
-            pass
-        
-        # Fallback ke produk static
-        produk_static = [
-            {"nama": "BPAL19", "harga": 19000, "kuota": 10, "kode": "BPAL19"},
-            {"nama": "BPAL25", "harga": 25000, "kuota": 10, "kode": "BPAL25"},
-            {"nama": "BPAL50", "harga": 50000, "kuota": 10, "kode": "BPAL50"},
-            {"nama": "BPAL100", "harga": 100000, "kuota": 10, "kode": "BPAL100"},
-        ]
-        return produk_static
-        
-    except Exception as e:
-        logger.error(f"Error getting produk list: {e}")
-        return []
+def produk_list_markup(produk_list):
+    buttons = [[InlineKeyboardButton(f"{produk['nama']} ({produk['harga']:,})", callback_data=f"produk|{produk['id']}")] for produk in produk_list]
+    buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
+    return InlineKeyboardMarkup(buttons)
 
-def menu_user(user_id):
-    """Menu untuk user regular"""
-    try:
-        # Info user: ID, saldo, riwayat transaksi
-        info_text = f"🆔 <b>ID User:</b> <code>{user_id}</code>\n"
-        
-        saldo = get_saldo_user_safe(user_id)
-        info_text += f"💰 <b>Saldo:</b> Rp {saldo:,}\n"
-        
-        riwayat = get_riwayat_saldo_safe(user_id, limit=3)
-        if riwayat:
-            info_text += "📄 <b>Riwayat Terakhir:</b>\n"
-            for i, trx in enumerate(riwayat[:3], 1):
-                tipe, jumlah, keterangan, tanggal = trx
-                status = "💰" if jumlah > 0 else "💸"
-                info_text += f"{i}. {status} {tipe}: Rp {jumlah:+,}\n"
-        else:
-            info_text += "📄 <i>Belum ada riwayat transaksi.</i>\n"
+def konfirmasi_order_markup():
+    buttons = [
+        [InlineKeyboardButton("✅ Konfirmasi", callback_data="konfirmasi_order"),
+         InlineKeyboardButton("❌ Batalkan", callback_data="batal_order")],
+        [InlineKeyboardButton("⬅️ Kembali ke Menu", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-        keyboard = [
-            [
-                InlineKeyboardButton("📦 Lihat Produk", callback_data='lihat_produk'),
-                InlineKeyboardButton("🛒 Beli Produk", callback_data='beli_produk')
-            ],
-            [
-                InlineKeyboardButton("💸 Top Up", callback_data='topup'),
-                InlineKeyboardButton("🔍 Cek Status", callback_data='cek_status')
-            ],
-            [
-                InlineKeyboardButton("📄 Riwayat", callback_data='riwayat'),
-                InlineKeyboardButton("📊 Stock XL/Axis", callback_data='stock_akrab')
-            ],
-        ]
-        
-        # Cek apakah topup tersedia
-        try:
-            from handlers.topup_handler import topup_callback
-        except ImportError:
-            # Hapus tombol topup jika tidak tersedia
-            keyboard[1] = [InlineKeyboardButton("🔍 Cek Status", callback_data='cek_status')]
-        
-        return info_text, InlineKeyboardMarkup(keyboard)
-        
-    except Exception as e:
-        logger.error(f"Error creating user menu: {e}")
-        # Fallback menu
-        keyboard = [
-            [InlineKeyboardButton("📦 Lihat Produk", callback_data='lihat_produk')],
-            [InlineKeyboardButton("🛒 Beli Produk", callback_data='beli_produk')],
-            [InlineKeyboardButton("🔄 Restart", callback_data='start')]
-        ]
-        return "🤖 <b>AMIFI BOT</b>\n\nPilih menu di bawah:", InlineKeyboardMarkup(keyboard)
+def topup_nominal_markup():
+    buttons = [
+        [InlineKeyboardButton("50.000", callback_data="topup_nominal|50000"),
+         InlineKeyboardButton("100.000", callback_data="topup_nominal|100000")],
+        [InlineKeyboardButton("200.000", callback_data="topup_nominal|200000"),
+         InlineKeyboardButton("500.000", callback_data="topup_nominal|500000")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-def menu_admin(user_id):
-    """Menu untuk admin"""
-    try:
-        info_text = f"🆔 <b>ID Admin:</b> <code>{user_id}</code>\n"
-        
-        saldo = get_saldo_user_safe(user_id)
-        info_text += f"💰 <b>Saldo:</b> Rp {saldo:,}\n"
-        
-        riwayat = get_riwayat_saldo_safe(user_id, limit=3)
-        if riwayat:
-            info_text += "📄 <b>Riwayat Terakhir:</b>\n"
-            for i, trx in enumerate(riwayat[:3], 1):
-                tipe, jumlah, keterangan, tanggal = trx
-                status = "💰" if jumlah > 0 else "💸"
-                info_text += f"{i}. {status} {tipe}: Rp {jumlah:+,}\n"
-        else:
-            info_text += "📄 <i>Belum ada riwayat transaksi.</i>\n"
+def confirm_topup_markup():
+    buttons = [
+        [InlineKeyboardButton("✅ Konfirmasi Topup", callback_data="confirm_topup"),
+         InlineKeyboardButton("❌ Batalkan", callback_data="cancel_topup")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-        keyboard = [
-            [
-                InlineKeyboardButton("📦 Produk", callback_data='lihat_produk'),
-                InlineKeyboardButton("🛒 Beli", callback_data='beli_produk'),
-                InlineKeyboardButton("💸 Top Up", callback_data='topup')
-            ],
-            [
-                InlineKeyboardButton("📄 Riwayat", callback_data='riwayat'),
-                InlineKeyboardButton("🔍 Cek Status", callback_data='cek_status'),
-                InlineKeyboardButton("📊 Stock", callback_data='stock_akrab')
-            ],
-            [
-                InlineKeyboardButton("💰 Lihat Saldo", callback_data='lihat_saldo'),
-                InlineKeyboardButton("➕ Tambah Saldo", callback_data='tambah_saldo')
-            ],
-        ]
-        
-        # Tambah menu admin khusus jika tersedia
-        try:
-            from handlers.admin_produk_handler import admin_edit_produk_callback
-            keyboard.append([
-                InlineKeyboardButton("📝 Manage Produk", callback_data='manajemen_produk'),
-                InlineKeyboardButton("🗃️ Semua Riwayat", callback_data='semua_riwayat')
-            ])
-        except ImportError:
-            pass
-            
-        # Cek apakah topup admin tersedia
-        try:
-            from handlers.topup_handler import admin_topup_list_callback
-            keyboard.append([InlineKeyboardButton("💳 Approve Topup", callback_data='riwayat_topup_admin')])
-        except ImportError:
-            pass
+def admin_topup_action_markup(topup_id):
+    buttons = [
+        [InlineKeyboardButton("✅ Approve", callback_data=f"approve_topup|{topup_id}"),
+         InlineKeyboardButton("❌ Reject", callback_data=f"reject_topup|{topup_id}")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="riwayat_topup_admin")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-        return info_text, InlineKeyboardMarkup(keyboard)
-        
-    except Exception as e:
-        logger.error(f"Error creating admin menu: {e}")
-        # Fallback menu admin
-        keyboard = [
-            [InlineKeyboardButton("📦 Produk", callback_data='lihat_produk')],
-            [InlineKeyboardButton("🛒 Beli", callback_data='beli_produk')],
-            [InlineKeyboardButton("📝 Manage Produk", callback_data='manajemen_produk')],
-            [InlineKeyboardButton("🔄 Restart", callback_data='start')]
-        ]
-        return "👑 <b>ADMIN PANEL</b>\n\nPilih menu di bawah:", InlineKeyboardMarkup(keyboard)
+def edit_produk_markup(produk_id):
+    buttons = [
+        [InlineKeyboardButton("Edit Harga", callback_data=f"editharga|{produk_id}"),
+         InlineKeyboardButton("Edit Deskripsi", callback_data=f"editdeskripsi|{produk_id}")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="manajemen_produk")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-def get_menu(user_id):
-    """Dapatkan menu berdasarkan user role"""
-    try:
-        if is_admin(user_id):
-            return menu_admin(user_id)
-        else:
-            return menu_user(user_id)
-    except Exception as e:
-        logger.error(f"Error in get_menu: {e}")
-        # Ultimate fallback
-        keyboard = [[InlineKeyboardButton("🔄 Restart", callback_data="start")]]
-        return "🤖 <b>AMIFI BOT</b>\n\nTerjadi error. Silakan restart.", InlineKeyboardMarkup(keyboard)
+def riwayat_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("Semua Riwayat", callback_data="semua_riwayat")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-def produk_inline_keyboard():
-    """Keyboard untuk daftar produk"""
-    try:
-        produk_list = get_produk_list_safe()
-        keyboard = []
-        
-        for i, p in enumerate(produk_list):
-            status = "✅" if p.get("kuota", 0) > 0 else "❌"
-            # Pastikan harga adalah integer untuk formatting
-            harga = p.get('harga', 0)
-            if isinstance(harga, str):
-                try:
-                    harga = int(harga)
-                except ValueError:
-                    harga = 0
-                    
-            label = f"{status} {p['nama']} | Rp {harga:,}"
-            callback_data = f"produk_static|{i}"
-            keyboard.append([
-                InlineKeyboardButton(label, callback_data=callback_data)
-            ])
-            
-        keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
-        return InlineKeyboardMarkup(keyboard)
-        
-    except Exception as e:
-        logger.error(f"Error creating produk keyboard: {e}")
-        # Fallback keyboard
-        keyboard = [
-            [InlineKeyboardButton("❌ Error loading products", callback_data="none")],
-            [InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")]
-        ]
-        return InlineKeyboardMarkup(keyboard)
+def stock_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("Cek Stock", callback_data="stock_akrab")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-def admin_edit_produk_keyboard(kode):
-    """Keyboard untuk edit produk (admin)"""
-    try:
-        return InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("💵 Edit Harga", callback_data=f"editharga|{kode}"),
-                InlineKeyboardButton("📝 Edit Deskripsi", callback_data=f"editdeskripsi|{kode}")
-            ],
-            [
-                InlineKeyboardButton("🔄 Reset Custom", callback_data=f"resetcustom|{kode}"),
-                InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")
-            ]
-        ])
-    except Exception as e:
-        logger.error(f"Error creating admin edit keyboard: {e}")
-        return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")]])
+def saldo_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("Tambah Saldo", callback_data="tambah_saldo")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+def status_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("Cek Status", callback_data="cek_status")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+# ========== REPLY KEYBOARDS ==========
+
+def reply_main_menu():
+    buttons = [
+        [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
+        [KeyboardButton("📦 Cek Stock"), KeyboardButton("📋 Riwayat Transaksi")],
+        [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
+    ]
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+def reply_cancel_menu():
+    buttons = [
+        [KeyboardButton("❌ Batal"), KeyboardButton("⬅️ Kembali")]
+    ]
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+def reply_admin_panel():
+    buttons = [
+        [KeyboardButton("📝 Manajemen Produk")],
+        [KeyboardButton("💳 Approve Topup")],
+        [KeyboardButton("👤 Tambah Saldo User")],
+        [KeyboardButton("🏠 Kembali ke Main Menu")]
+    ]
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+# ========== UTILITY ==========
+
+def custom_inline_keyboard(buttons):
+    """
+    buttons: list of list, e.g.
+    [
+        [("Tombol 1", "cb_data_1"), ("Tombol 2", "cb_data_2")],
+        [("Tombol 3", "cb_data_3")]
+    ]
+    """
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(text, cbdata) for text, cbdata in row]
+        for row in buttons
+    ])
+
+def custom_reply_keyboard(buttons):
+    """
+    buttons: list of list, e.g.
+    [
+        ["Tombol 1", "Tombol 2"],
+        ["Tombol 3"]
+    ]
+    """
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+# ========== END OF FILE ==========
