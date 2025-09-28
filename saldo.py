@@ -1,88 +1,141 @@
+# saldo.py
 import sqlite3
-from datetime import datetime
 
 DB_PATH = "db_bot.db"
 
-def get_conn():
-    return sqlite3.connect(DB_PATH)
-
-def init_db():
-    conn = get_conn()
+def init_db_saldo():
+    """Initialize database table untuk saldo"""
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS saldo (
-            user_id INTEGER PRIMARY KEY,
-            saldo INTEGER NOT NULL DEFAULT 0
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS riwayat_saldo (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            waktu TEXT,
-            tipe TEXT,         -- 'topup', 'order', 'admin', dll
-            nominal INTEGER,   -- +saldo (topup), -saldo (order)
-            keterangan TEXT
+            user_id INTEGER UNIQUE NOT NULL,
+            saldo INTEGER DEFAULT 0,
+            last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    ''')
     conn.commit()
     conn.close()
-
-def tambah_saldo_user(user_id, nominal, tipe="topup", keterangan=""):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (?, 0)", (user_id,))
-    cur.execute("UPDATE saldo SET saldo = saldo + ? WHERE user_id = ?", (nominal, user_id))
-    cur.execute("INSERT INTO riwayat_saldo (user_id, waktu, tipe, nominal, keterangan) VALUES (?, ?, ?, ?, ?)",
-        (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), tipe, nominal, keterangan)
-    )
-    conn.commit()
-    conn.close()
-
-def kurang_saldo_user(user_id, nominal, tipe="order", keterangan=""):
-    conn = get_conn()
-    cur = conn.cursor()
-    # Pastikan user ada, kalau belum insert dulu
-    cur.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (?, 0)", (user_id,))
-    cur.execute("UPDATE saldo SET saldo = saldo - ? WHERE user_id = ?", (nominal, user_id))
-    cur.execute("INSERT INTO riwayat_saldo (user_id, waktu, tipe, nominal, keterangan) VALUES (?, ?, ?, ?, ?)",
-        (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), tipe, -nominal, keterangan)
-    )
-    conn.commit()
-    conn.close()
+    print("[DEBUG] Tabel saldo siap")
 
 def get_saldo_user(user_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT saldo FROM saldo WHERE user_id=?", (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    return row[0] if row else 0
+    """Ambil saldo user"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('SELECT saldo FROM saldo WHERE user_id = ?', (user_id,))
+        result = cur.fetchone()
+        conn.close()
+        
+        if result:
+            return result[0]
+        else:
+            # Jika user belum ada, buat record baru dengan saldo 0
+            init_saldo_user(user_id)
+            return 0
+    except Exception as e:
+        print(f"[ERROR] Gagal get saldo user {user_id}: {e}")
+        return 0
 
-def get_riwayat_saldo(user_id=None, limit=10):
-    conn = get_conn()
-    cur = conn.cursor()
-    if user_id is None:
-        # Admin mode: ambil semua riwayat
-        cur.execute("SELECT waktu, user_id, tipe, nominal, keterangan FROM riwayat_saldo ORDER BY id DESC LIMIT ?", (limit,))
-        rows = cur.fetchall()
-    else:
-        cur.execute("SELECT waktu, tipe, nominal, keterangan FROM riwayat_saldo WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit))
-        rows = cur.fetchall()
-    conn.close()
-    return rows
+def init_saldo_user(user_id, saldo_awal=0):
+    """Initialize saldo untuk user baru"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT OR IGNORE INTO saldo (user_id, saldo) 
+            VALUES (?, ?)
+        ''', (user_id, saldo_awal))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"[ERROR] Gagal init saldo user {user_id}: {e}")
+        return False
 
-def reset_saldo_user(user_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("UPDATE saldo SET saldo = 0 WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+def kurang_saldo_user(user_id, jumlah, tipe="order", keterangan=""):
+    """Kurangi saldo user"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        
+        # Cek saldo cukup
+        saldo_sekarang = get_saldo_user(user_id)
+        if saldo_sekarang < jumlah:
+            print(f"[ERROR] Saldo tidak cukup: {saldo_sekarang} < {jumlah}")
+            return False
+        
+        # Kurangi saldo
+        cur.execute('''
+            UPDATE saldo 
+            SET saldo = saldo - ?, last_update = CURRENT_TIMESTAMP 
+            WHERE user_id = ?
+        ''', (jumlah, user_id))
+        
+        # Catat di riwayat saldo (jika ada tabelnya)
+        try:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS riwayat_saldo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    tipe TEXT NOT NULL,
+                    jumlah INTEGER NOT NULL,
+                    keterangan TEXT,
+                    tanggal TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cur.execute('''
+                INSERT INTO riwayat_saldo (user_id, tipe, jumlah, keterangan)
+                VALUES (?, ?, ?, ?)
+            ''', (user_id, tipe, -jumlah, keterangan))
+        except Exception as e:
+            print(f"[WARNING] Gagal catat riwayat saldo: {e}")
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[DEBUG] Saldo berhasil dikurangi: user={user_id}, jumlah={jumlah}, saldo_baru={saldo_sekarang - jumlah}")
+        return True
+        
+    except Exception as e:
+        print(f"[ERROR] Gagal kurangi saldo user {user_id}: {e}")
+        return False
 
-def get_all_user_ids():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT DISTINCT user_id FROM saldo")
-    rows = cur.fetchall()
-    conn.close()
-    return [row[0] for row in rows]
+def tambah_saldo_user(user_id, jumlah, tipe="topup", keterangan=""):
+    """Tambah saldo user"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        
+        # Pastikan user ada
+        init_saldo_user(user_id)
+        
+        # Tambah saldo
+        cur.execute('''
+            UPDATE saldo 
+            SET saldo = saldo + ?, last_update = CURRENT_TIMESTAMP 
+            WHERE user_id = ?
+        ''', (jumlah, user_id))
+        
+        # Catat di riwayat saldo
+        try:
+            cur.execute('''
+                INSERT INTO riwayat_saldo (user_id, tipe, jumlah, keterangan)
+                VALUES (?, ?, ?, ?)
+            ''', (user_id, tipe, jumlah, keterangan))
+        except Exception as e:
+            print(f"[WARNING] Gagal catat riwayat saldo: {e}")
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[DEBUG] Saldo berhasil ditambah: user={user_id}, jumlah={jumlah}")
+        return True
+        
+    except Exception as e:
+        print(f"[ERROR] Gagal tambah saldo user {user_id}: {e}")
+        return False
+
+# Initialize database saat module di-load
+init_db_saldo()
