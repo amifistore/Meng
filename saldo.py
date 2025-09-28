@@ -1,4 +1,4 @@
-# saldo.py - VERSI LENGKAP & FIX
+# saldo.py - VERSI FINAL FIX
 import sqlite3
 import logging
 
@@ -42,6 +42,20 @@ def init_db_saldo():
         logger.error(f"❌ Gagal init database saldo: {e}")
         return False
 
+def safe_int_convert(value):
+    """Convert value to integer safely"""
+    try:
+        if isinstance(value, str):
+            # Remove any non-digit characters except minus
+            cleaned = ''.join(c for c in value if c.isdigit() or c == '-')
+            return int(cleaned) if cleaned else 0
+        elif isinstance(value, (int, float)):
+            return int(value)
+        else:
+            return 0
+    except (ValueError, TypeError):
+        return 0
+
 def get_saldo_user(user_id):
     """Ambil saldo user - PASTIKAN return integer"""
     try:
@@ -52,10 +66,8 @@ def get_saldo_user(user_id):
         conn.close()
         
         if result:
-            # PASTIKAN return integer
-            saldo = result[0]
-            if isinstance(saldo, str):
-                saldo = int(saldo)
+            # PASTIKAN return integer dengan safe conversion
+            saldo = safe_int_convert(result[0])
             return saldo
         else:
             # Jika user belum ada, buat record baru dengan saldo 0
@@ -68,6 +80,7 @@ def get_saldo_user(user_id):
 def init_saldo_user(user_id, saldo_awal=0):
     """Initialize saldo untuk user baru"""
     try:
+        saldo_awal = safe_int_convert(saldo_awal)
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute('''
@@ -85,10 +98,9 @@ def init_saldo_user(user_id, saldo_awal=0):
 def kurang_saldo_user(user_id, jumlah, tipe="order", keterangan=""):
     """Kurangi saldo user"""
     try:
-        # PASTIKAN jumlah adalah integer
-        if isinstance(jumlah, str):
-            jumlah = int(jumlah)
-            
+        # PASTIKAN jumlah adalah integer dengan safe conversion
+        jumlah = safe_int_convert(jumlah)
+        
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         
@@ -124,10 +136,9 @@ def kurang_saldo_user(user_id, jumlah, tipe="order", keterangan=""):
 def tambah_saldo_user(user_id, jumlah, tipe="topup", keterangan=""):
     """Tambah saldo user"""
     try:
-        # PASTIKAN jumlah adalah integer
-        if isinstance(jumlah, str):
-            jumlah = int(jumlah)
-            
+        # PASTIKAN jumlah adalah integer dengan safe conversion
+        jumlah = safe_int_convert(jumlah)
+        
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         
