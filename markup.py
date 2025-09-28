@@ -1,12 +1,12 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# ========== INLINE KEYBOARDS ==========
+# ===== INLINE KEYBOARDS =====
 
 def main_menu_markup(is_admin=False):
     buttons = [
         [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
         [InlineKeyboardButton("💳 Top Up Saldo", callback_data="topup")],
-        [InlineKeyboardButton("📦 Cek Stock", callback_data="stock_akrab")],
+        [InlineKeyboardButton("📦 Cek Stok", callback_data="stock_akrab")],
         [InlineKeyboardButton("📋 Riwayat Transaksi", callback_data="riwayat")],
         [InlineKeyboardButton("💰 Lihat Saldo", callback_data="lihat_saldo")],
         [InlineKeyboardButton("🔍 Cek Status", callback_data="cek_status")],
@@ -25,12 +25,14 @@ def admin_menu_markup():
     return InlineKeyboardMarkup(buttons)
 
 def produk_kategori_markup(kategori_list):
-    buttons = [[InlineKeyboardButton(kategori['nama'], callback_data=f"category|{kategori['id']}")] for kategori in kategori_list]
+    # kategori_list: list of dict [{'id':..., 'nama':...}, ...]
+    buttons = [[InlineKeyboardButton(kat['nama'], callback_data=f"category|{kat['id']}")] for kat in kategori_list]
     buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
     return InlineKeyboardMarkup(buttons)
 
 def produk_list_markup(produk_list):
-    buttons = [[InlineKeyboardButton(f"{produk['nama']} ({produk['harga']:,})", callback_data=f"produk|{produk['id']}")] for produk in produk_list]
+    # produk_list: list of dict [{'id':..., 'nama':..., 'harga':...}, ...]
+    buttons = [[InlineKeyboardButton(f"{prod['nama']} ({prod['harga']:,})", callback_data=f"produk|{prod['id']}")] for prod in produk_list]
     buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
     return InlineKeyboardMarkup(buttons)
 
@@ -85,7 +87,7 @@ def riwayat_menu_markup():
 
 def stock_menu_markup():
     buttons = [
-        [InlineKeyboardButton("Cek Stock", callback_data="stock_akrab")],
+        [InlineKeyboardButton("Cek Stok", callback_data="stock_akrab")],
         [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -104,12 +106,12 @@ def status_menu_markup():
     ]
     return InlineKeyboardMarkup(buttons)
 
-# ========== REPLY KEYBOARDS ==========
+# ===== REPLY KEYBOARDS =====
 
 def reply_main_menu():
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
-        [KeyboardButton("📦 Cek Stock"), KeyboardButton("📋 Riwayat Transaksi")],
+        [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
         [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
@@ -129,7 +131,7 @@ def reply_admin_panel():
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# ========== UTILITY ==========
+# ===== UTILITY =====
 
 def custom_inline_keyboard(buttons):
     """
@@ -154,4 +156,8 @@ def custom_reply_keyboard(buttons):
     """
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# ========== END OF FILE ==========
+# Optional: Alias get_menu agar tidak error jika di-import
+def get_menu(is_admin=False):
+    return main_menu_markup(is_admin=is_admin)
+
+# ===== END OF FILE =====
