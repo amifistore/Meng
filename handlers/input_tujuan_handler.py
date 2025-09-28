@@ -1,4 +1,5 @@
-from telegram import ParseMode
+from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ConversationHandler
 from markup import get_menu
 
 INPUT_TUJUAN, KONFIRMASI = 1, 2
@@ -8,25 +9,66 @@ def input_tujuan_step(update, context):
     # Validasi nomor tujuan: minimal 9 digit, maksimal 15 digit, hanya angka
     if not tujuan.isdigit() or len(tujuan) < 9 or len(tujuan) > 15:
         update.message.reply_text(
-            "❌ Format nomor tidak valid. Masukkan ulang nomor tujuan (min 9 digit, max 15 digit, angka saja):"
+            "❌ Format nomor tidak valid.\n"
+            "Masukkan ulang nomor tujuan (min 9 digit, max 15 digit, angka saja):",
+            reply_markup=get_menu(update.effective_user.id)
         )
-        return INPUT_TUJUAN  # Tetap di state input tujuan
+        return INPUT_TUJUAN
 
     context.user_data["tujuan"] = tujuan
     p = context.user_data.get("produk")
     if not p:
         update.message.reply_text(
-            "❌ Produk tidak ditemukan dalam sesi. Silakan mulai ulang order.", 
+            "❌ Produk tidak ditemukan dalam sesi.\nSilakan mulai ulang order.",
             reply_markup=get_menu(update.effective_user.id)
         )
         return ConversationHandler.END
 
+    # Modern: Gunakan inline keyboard untuk konfirmasi
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Konfirmasi", callback_data="konfirmasi_order"),
+            InlineKeyboardButton("❌ Batal", callback_data="batal_order")
+        ]
+    ]
+
     update.message.reply_text(
-        f"📋 Konfirmasi pesanan:\n\n"
+        f"📋 <b>Konfirmasi Pesanan</b>\n\n"
         f"Produk: <b>{p['kode']}</b> - {p['nama']}\n"
-        f"Harga: Rp {p['harga']:,}\n"
+        f"Harga: <b>Rp {p['harga']:,}</b>\n"
         f"Nomor: <b>{tujuan}</b>\n\n"
-        "Ketik 'YA' untuk konfirmasi atau 'BATAL' untuk membatalkan.",
-        parse_mode=ParseMode.HTML
+        "Klik <b>Konfirmasi</b> untuk melanjutkan atau <b>Batal</b> untuk membatalkan.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return KONFIRMASI
+
+# Tambahkan di handler konfirmasi:
+def handle_konfirmasi(update, context):
+    query = update.callback_query
+    if query:
+        query.answer()
+        data = query.data
+        if data == "konfirmasi_order":
+            # Proses order
+            query.edit_message_text("✅ Pesanan kamu berhasil dikonfirmasi dan sedang diproses.", parse_mode=ParseMode.HTML)
+            # Lanjut proses order di sini
+            return ConversationHandler.END
+        elif data == "batal_order":
+            query.edit_message_text("❌ Pesanan dibatalkan.", reply_markup=get_menu(query.from_user.id))
+            return ConversationHandler.END
+        else:
+            query.edit_message_text("❌ Pilihan tidak valid.", reply_markup=get_menu(query.from_user.id))
+            return ConversationHandler.END
+    else:
+        # Fallback jika user kirim teks saat konfirmasi
+        text = update.message.text.strip().lower()
+        if text == "ya":
+            update.message.reply_text("✅ Pesanan kamu berhasil dikonfirmasi dan sedang diproses.", parse_mode=ParseMode.HTML)
+            # Proses order di sini
+        elif text == "batal":
+            update.message.reply_text("❌ Pesanan dibatalkan.", reply_markup=get_menu(update.effective_user.id))
+        else:
+            update.message.reply_text("❌ Jawaban tidak valid. Ketik 'YA' untuk konfirmasi atau 'BATAL' untuk membatalkan.")
+            return KONFIRMASI
+        return ConversationHandler.END
