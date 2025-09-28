@@ -37,26 +37,50 @@ def make_qris_image(qris_base64, template_path=QRIS_TEMPLATE_PATH):
         log_topup_error(f"make_qris_image error: {e}")
         return None
 
+def safe_edit_message(query, new_text, reply_markup=None, parse_mode=None):
+    # Hindari error Message is not modified
+    try:
+        prev_text = query.message.text if query.message and query.message.text else ""
+        prev_markup = query.message.reply_markup if query.message else None
+        if prev_text == new_text and str(prev_markup) == str(reply_markup):
+            return
+        query.edit_message_text(new_text, reply_markup=reply_markup, parse_mode=parse_mode)
+    except Exception as e:
+        if "Message is not modified" in str(e):
+            pass
+        else:
+            log_topup_error(f"safe_edit_message error: {str(e)}")
+
 def topup_callback(update, context):
     query = update.callback_query
-    query.answer()
+    if query: query.answer()
     unique = int(time.time())
-    try:
-        query.edit_message_text(
-            "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
-            "Contoh: <code>25000</code>\n"
-            f"Kode unik: <code>{unique}</code>",
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        log_topup_error(f"topup_callback error: {str(e)}")
-        query.message.reply_text(f"❌ Error Top Up: {e}")
+    new_text = (
+        "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
+        "Contoh: <code>25000</code>\n"
+        f"Kode unik: <code>{unique}</code>"
+    )
+    safe_edit_message(query, new_text, parse_mode="HTML")
     return TOPUP_NOMINAL
 
 def topup_nominal_step(update, context):
-    text = update.message.text.strip()
     try:
-        nominal = int(text.replace(".", "").replace(",", ""))
+        # Aman akses text
+        text = ""
+        if update.message and update.message.text:
+            text = update.message.text.strip()
+        else:
+            log_topup_error("topup_nominal_step: update.message or text is None")
+            update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")
+            return TOPUP_NOMINAL
+
+        try:
+            nominal = int(text.replace(".", "").replace(",", ""))
+        except Exception as ve:
+            log_topup_error(f"Nominal format error: {str(ve)}")
+            update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")
+            return TOPUP_NOMINAL
+
         if nominal < 10000:
             update.message.reply_text("❌ Nominal minimal 10.000. Masukkan kembali nominal:")
             return TOPUP_NOMINAL
@@ -87,22 +111,25 @@ def topup_nominal_step(update, context):
                 if img:
                     update.message.reply_photo(photo=img, caption=msg, parse_mode="HTML")
                 else:
-                    qr_bytes = base64.b64decode(qris_base64)
-                    bio = BytesIO(qr_bytes)
-                    bio.name = "qris.png"
-                    bio.seek(0)
-                    update.message.reply_photo(photo=bio, caption=msg, parse_mode="HTML")
+                    try:
+                        qr_bytes = base64.b64decode(qris_base64)
+                        bio = BytesIO(qr_bytes)
+                        bio.name = "qris.png"
+                        bio.seek(0)
+                        update.message.reply_photo(photo=bio, caption=msg, parse_mode="HTML")
+                    except Exception as e:
+                        log_topup_error(f"Error decode QRIS: {str(e)}")
+                        update.message.reply_text(f"❌ Error decode QRIS: {str(e)}")
             except Exception as e:
                 log_topup_error(f"Send QRIS image error: {str(e)}")
                 update.message.reply_text(f"❌ Error kirim gambar QRIS: {str(e)}")
         else:
             log_topup_error("QRIS base64 kosong")
             update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")
-    except ValueError as ve:
-        log_topup_error(f"Nominal format error: {str(ve)}")
-        update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")
-        return TOPUP_NOMINAL
     except Exception as e:
         log_topup_error(f"topup_nominal_step error: {str(e)}")
-        update.message.reply_text(f"❌ Error: {str(e)}")
+        try:
+            update.message.reply_text(f"❌ Error: {str(e)}")
+        except Exception:
+            pass
     return ConversationHandler.END
