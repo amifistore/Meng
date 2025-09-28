@@ -42,6 +42,8 @@ def tambah_saldo_user(user_id, nominal, tipe="topup", keterangan=""):
 def kurang_saldo_user(user_id, nominal, tipe="order", keterangan=""):
     conn = get_conn()
     cur = conn.cursor()
+    # Pastikan user ada, kalau belum insert dulu
+    cur.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (?, 0)", (user_id,))
     cur.execute("UPDATE saldo SET saldo = saldo - ? WHERE user_id = ?", (nominal, user_id))
     cur.execute("INSERT INTO riwayat_saldo (user_id, waktu, tipe, nominal, keterangan) VALUES (?, ?, ?, ?, ?)",
         (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), tipe, -nominal, keterangan)
