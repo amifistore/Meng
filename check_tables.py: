@@ -1,0 +1,42 @@
+# check_tables.py
+import sqlite3
+
+DB_PATH = "db_bot.db"
+
+def check_tables():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    
+    # Cek tabel yang ada
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = cur.fetchall()
+    
+    print("=== TABEL YANG ADA ===")
+    for table in tables:
+        print(f"✅ {table[0]}")
+    
+    # Cek struktur tabel riwayat_order
+    print("\n=== STRUKTUR riwayat_order ===")
+    cur.execute("PRAGMA table_info(riwayat_order)")
+    columns = cur.fetchall()
+    for col in columns:
+        print(f"  {col[1]} ({col[2]})")
+    
+    # Cek struktur tabel saldo
+    print("\n=== STRUKTUR saldo ===")
+    cur.execute("PRAGMA table_info(saldo)")
+    columns = cur.fetchall()
+    for col in columns:
+        print(f"  {col[1]} ({col[2]})")
+    
+    # Cek struktur tabel riwayat_saldo
+    print("\n=== STRUKTUR riwayat_saldo ===")
+    cur.execute("PRAGMA table_info(riwayat_saldo)")
+    columns = cur.fetchall()
+    for col in columns:
+        print(f"  {col[1]} ({col[2]})")
+    
+    conn.close()
+
+if __name__ == "__main__":
+    check_tables()
