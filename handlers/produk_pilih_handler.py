@@ -1,6 +1,6 @@
 from telegram import ParseMode
 from telegram.ext import ConversationHandler
-from markup import get_menu
+from markup import get_menu, produk_inline_keyboard
 from produk import get_produk_list
 from utils import get_user_saldo
 
@@ -17,6 +17,16 @@ def produk_pilih_callback(update, context):
         query.answer()
     except Exception:
         pass
+
+    # FIX: Handle 'beli_produk' callback
+    if data == "beli_produk":
+        # Tampilkan daftar produk untuk dipilih
+        query.edit_message_text(
+            "🛒 Pilih produk yang ingin dibeli:",
+            reply_markup=produk_inline_keyboard()
+        )
+        context.user_data.clear()
+        return CHOOSING_PRODUK
 
     if data.startswith("produk_static|"):
         try:
