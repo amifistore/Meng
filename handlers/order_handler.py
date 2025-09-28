@@ -117,15 +117,15 @@ def handle_konfirmasi(update, context):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
-                        "produk": produk['nama'],
                         "kode": produk['kode'],
-                        "harga": produk['harga'],
                         "tujuan": tujuan,
-                        "status": "success",
+                        "harga": produk['harga'],
                         "tanggal": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "status": "success",
                         "sn": result.get('sn', ''),
-                        "response": result
+                        "keterangan": result.get('message', '')
                     }
+                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     msg_proc.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
@@ -198,15 +198,15 @@ def handle_konfirmasi(update, context):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
-                        "produk": produk['nama'],
                         "kode": produk['kode'],
-                        "harga": produk['harga'],
                         "tujuan": tujuan,
-                        "status": "success",
+                        "harga": produk['harga'],
                         "tanggal": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "status": "success",
                         "sn": result.get('sn', ''),
-                        "response": result
+                        "keterangan": result.get('message', '')
                     }
+                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     processing_msg.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
