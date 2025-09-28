@@ -29,7 +29,8 @@ def main():
         
         # Import module untuk trigger auto-init (tidak perlu assign ke variable)
         import saldo  # Ini akan trigger init_db_saldo
-        import riwayat  # Ini akan trigger init_db_riwayat
+        import riwayat  # Ini akan trigger init_db_riwayat  
+        import topup  # Ini akan trigger init_db_topup
         print("✅ Database modules initialized")
 
         from handlers.main_menu_handler import (
