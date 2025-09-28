@@ -1,85 +1,38 @@
 from telegram import ParseMode
-from saldo import get_riwayat_saldo
-from markup import get_menu, is_admin
+from riwayat import cari_riwayat_order
+from topup import cari_riwayat_topup
+from markup import get_menu
 
-def riwayat_callback(update, context):
-    """Callback untuk tombol Riwayat transaksi user di menu utama"""
+def cari_riwayat_order_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
-    riwayat_data = get_riwayat_saldo(user.id)
-    if not riwayat_data:
-        msg = "📄 *Riwayat Transaksi Kosong*\n\nBelum ada transaksi yang dilakukan."
+    keyword = context.args[0] if context.args else ""
+    results = cari_riwayat_order(user_id=user.id, ref_id=keyword)
+    if not results:
+        msg = f"📄 Tidak ditemukan riwayat order dengan kata kunci: <code>{keyword}</code>"
     else:
-        msg = "📄 *Riwayat Saldo & Topup Terakhir*\n\n"
-        for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
-            status = "✅" if trx[2] > 0 else "❌"
-            tipe = trx[1]
-            nominal = trx[2]
-            ket = trx[3]
-            waktu = trx[0]
-            msg += f"{i}. {status} {tipe} {nominal:+,}\n"
-            msg += f"   🕒 {waktu}\n   {ket}\n\n"
+        msg = f"📄 Hasil pencarian order dengan kata kunci: <code>{keyword}</code>\n\n"
+        for i, trx in enumerate(results, 1):
+            msg += f"{i}. {trx[0]} | {trx[1]} | Rp {trx[2]:,} | Tujuan: {trx[3]} | Status: {trx[4]} | {trx[5]}\n"
     update.callback_query.edit_message_text(
         msg,
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
         reply_markup=get_menu(user.id)
     )
 
-def semua_riwayat_callback(update, context):
-    """Callback untuk tombol Semua Riwayat (admin) di menu admin"""
+def cari_riwayat_topup_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
-    if not is_admin(user.id):
-        update.callback_query.edit_message_text(
-            "❌ Akses ditolak.",
-            reply_markup=get_menu(user.id)
-        )
-        return
-    # Ambil semua riwayat dari database
-    from saldo import get_riwayat_saldo
-    all_riwayat = get_riwayat_saldo(None, admin_mode=True)
-    if not all_riwayat:
-        msg = "📄 *Semua Riwayat Kosong*\n\nBelum ada transaksi dari semua user."
+    keyword = context.args[0] if context.args else ""
+    results = cari_riwayat_topup(user_id=user.id, status=keyword if keyword else None)
+    if not results:
+        msg = f"📄 Tidak ditemukan riwayat topup dengan status: <code>{keyword}</code>"
     else:
-        msg = "📄 *Semua Riwayat Transaksi*\n\n"
-        total = 0
-        user_map = {}
-        for row in all_riwayat:
-            waktu, user_id, tipe, nominal, ket = row
-            if user_id not in user_map: user_map[user_id] = []
-            user_map[user_id].append((waktu, tipe, nominal, ket))
-            total += nominal if nominal > 0 else 0
-        for user_id, transactions in user_map.items():
-            msg += f"👤 User `{user_id}`:\n"
-            for trx in transactions[-3:]:
-                status = "✅" if trx[2] > 0 else "❌"
-                msg += f"   {status} {trx[1]} {trx[2]:+,}\n   🕒 {trx[0]}\n   {trx[3]}\n"
-            msg += "\n"
-        msg += f"💰 *Total Transaksi: Rp {total:,}*"
+        msg = f"📄 Hasil pencarian topup dengan status: <code>{keyword}</code>\n\n"
+        for i, t in enumerate(results, 1):
+            msg += f"{i}. ID: {t[0]} | Rp {t[1]:,} | Status: {t[2]} | {t[3]}\n"
     update.callback_query.edit_message_text(
         msg,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=get_menu(user.id)
-    )
-
-def riwayat_user(update, context):
-    """Bisa dipanggil via command (misal /riwayat) atau callback"""
-    user = update.effective_user
-    riwayat_data = get_riwayat_saldo(user.id)
-    if not riwayat_data:
-        msg = "📄 *Riwayat Transaksi Kosong*\n\nBelum ada transaksi yang dilakukan."
-    else:
-        msg = "📄 *Riwayat Saldo & Topup Terakhir*\n\n"
-        for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
-            status = "✅" if trx[2] > 0 else "❌"
-            tipe = trx[1]
-            nominal = trx[2]
-            ket = trx[3]
-            waktu = trx[0]
-            msg += f"{i}. {status} {tipe} {nominal:+,}\n"
-            msg += f"   🕒 {waktu}\n   {ket}\n\n"
-    update.message.reply_text(
-        msg,
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
         reply_markup=get_menu(user.id)
     )
