@@ -2,6 +2,35 @@ import sqlite3
 
 DB_PATH = "db_bot.db"
 
+def init_db_saldo():
+    """Inisialisasi tabel saldo dan riwayat_saldo jika belum ada"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        # Tabel saldo
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS saldo (
+                user_id INTEGER PRIMARY KEY,
+                saldo INTEGER DEFAULT 0
+            )
+        """)
+        # Tabel riwayat_saldo
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS riwayat_saldo (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                perubahan INTEGER,
+                tipe TEXT,
+                keterangan TEXT,
+                tanggal TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+        print("✅ Tabel saldo & riwayat_saldo siap")
+    except Exception as e:
+        print(f"Error init_db_saldo: {e}")
+
 def kurang_saldo_user(user_id, jumlah, tipe="order", keterangan=""):
     """
     Mengurangi saldo user, return True jika berhasil, False jika saldo tidak cukup.
