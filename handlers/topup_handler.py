@@ -1,5 +1,6 @@
 import base64
 import random
+import uuid
 import time
 from io import BytesIO
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -9,8 +10,8 @@ from PIL import Image
 
 TOPUP_NOMINAL = 3
 
-# Ganti dengan chat_id admin atau grup admin (contoh grup: -100xxxxxxxxxx)
-ADMIN_CHAT_ID = 1234567890
+# Multi admin support
+ADMIN_IDS = [1234567890, 9876543210]  # Isi dengan list chat_id admin
 
 QRIS_TEMPLATE_PATH = "qris_template.png"
 QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506469550303UMI51440014ID.CO.QRIS.WWW0215ID10243341364120303UMI5204569753033605802ID5923Amifi Store, Kmb, TLGSR6009BONDOWOSO61056827262070703A01630431E8"
@@ -18,6 +19,11 @@ QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506
 def log_topup_error(error_text):
     with open("topup_error.log", "a") as f:
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_text}\n")
+
+def log_admin_action(admin_id, action, target_id, topup_id, detail=""):
+    # Contoh pencatatan log aksi admin, bisa dimasukkan ke tabel log_admin_action
+    with open("admin_action.log", "a") as f:
+        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ADMIN:{admin_id} ACTION:{action} TARGET:{target_id} TOPUP_ID:{topup_id} {detail}\n")
 
 def get_nominal_unik(nominal, min_unik=1, max_unik=99):
     kode_unik = random.randint(min_unik, max_unik)
@@ -85,12 +91,13 @@ def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id)
                 InlineKeyboardButton("❌ Batal", callback_data=f"topup_batal|{topup_id}|{user.id}")
             ]
         ]
-        context.bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML"
-        )
+        for admin_id in ADMIN_IDS:
+            context.bot.send_message(
+                chat_id=admin_id,
+                text=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="HTML"
+            )
     except Exception as e:
         log_topup_error(f"notify_admin_topup error: {e}")
 
@@ -159,7 +166,7 @@ def topup_nominal_step(update, context):
             update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")
 
         # === NOTIFIKASI ADMIN + TOMBOL ===
-        topup_id = str(int(time.time())) + str(update.effective_user.id)
+        topup_id = str(uuid.uuid4())
         notify_admin_topup(
             context,
             update.effective_user,
@@ -177,13 +184,26 @@ def topup_nominal_step(update, context):
             pass
     return ConversationHandler.END
 
+def approve_topup(topup_id, user_id, nominal):
+    # Integrasi ke DB: update status topup, tambah saldo user, log
+    # Implement with actual db logic!
+    log_admin_action("system", "approve_topup", user_id, topup_id, f"nominal={nominal}")
+
+def reject_topup(topup_id, user_id):
+    # Integrasi ke DB: update status topup, log
+    # Implement with actual db logic!
+    log_admin_action("system", "reject_topup", user_id, topup_id)
+
 def admin_topup_callback(update, context):
     query = update.callback_query
     query.answer()
     data = query.data
+    admin_id = query.from_user.id
     if data.startswith("topup_approve|"):
         _, topup_id, user_id = data.split("|")
         query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
+        approve_topup(topup_id, user_id, "NOMINAL_HERE")  # Integrasi nominal sesuai sistem
+        log_admin_action(admin_id, "approve_topup", user_id, topup_id)
         try:
             context.bot.send_message(
                 chat_id=int(user_id),
@@ -195,6 +215,8 @@ def admin_topup_callback(update, context):
     elif data.startswith("topup_batal|"):
         _, topup_id, user_id = data.split("|")
         query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")
+        reject_topup(topup_id, user_id)
+        log_admin_action(admin_id, "reject_topup", user_id, topup_id)
         try:
             context.bot.send_message(
                 chat_id=int(user_id),
