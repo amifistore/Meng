@@ -560,22 +560,5 @@ def error_handler(update, context):
     except Exception as e:
         logger.error(f"Error notif user: {e}")
 
-    # Notif admin via Telegram (pakai ADMIN_IDS dari config)
-    try:
-        from config import ADMIN_IDS
-        for admin_id in ADMIN_IDS:
-            try:
-                context.bot.send_message(
-                    chat_id=admin_id,
-                    text=f"⚠️ Error terjadi: {context.error}"
-                )
-            except Exception as ee:
-                logger.error(f"Failed to notify admin {admin_id}: {ee}")
-    except Exception as e:
-        logger.error(f"Error notif admin: {e}")
-
-# Daftarkan error handler ke dispatcher
-dp.add_error_handler(error_handler)
-print("✅ Error handler setup complete")
 if __name__ == '__main__':
     main()
