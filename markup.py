@@ -1,7 +1,5 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# ===== INLINE KEYBOARDS =====
-
 def main_menu_markup(is_admin=False):
     buttons = [
         [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
@@ -25,16 +23,18 @@ def admin_menu_markup():
     return InlineKeyboardMarkup(buttons)
 
 def produk_kategori_markup(kategori_list):
-    # kategori_list: list of dict [{'id':..., 'nama':...}, ...]
     buttons = [[InlineKeyboardButton(kat['nama'], callback_data=f"category|{kat['id']}")] for kat in kategori_list]
     buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
     return InlineKeyboardMarkup(buttons)
 
 def produk_list_markup(produk_list):
-    # produk_list: list of dict [{'id':..., 'nama':..., 'harga':...}, ...]
     buttons = [[InlineKeyboardButton(f"{prod['nama']} ({prod['harga']:,})", callback_data=f"produk|{prod['id']}")] for prod in produk_list]
     buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
     return InlineKeyboardMarkup(buttons)
+
+# Alias agar tidak error import produk_inline_keyboard
+def produk_inline_keyboard(produk_list):
+    return produk_list_markup(produk_list)
 
 def konfirmasi_order_markup():
     buttons = [
@@ -106,8 +106,6 @@ def status_menu_markup():
     ]
     return InlineKeyboardMarkup(buttons)
 
-# ===== REPLY KEYBOARDS =====
-
 def reply_main_menu():
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
@@ -130,8 +128,6 @@ def reply_admin_panel():
         [KeyboardButton("🏠 Kembali ke Main Menu")]
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
-
-# ===== UTILITY =====
 
 def custom_inline_keyboard(buttons):
     """
@@ -156,8 +152,5 @@ def custom_reply_keyboard(buttons):
     """
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# Optional: Alias get_menu agar tidak error jika di-import
 def get_menu(is_admin=False):
     return main_menu_markup(is_admin=is_admin)
-
-# ===== END OF FILE =====
