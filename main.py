@@ -17,21 +17,19 @@ def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
     print("=" * 50)
-
     try:
         from config import TOKEN
         print(f"✅ Token loaded: {TOKEN[:10]}...")
         from telegram.ext import (
             Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         )
-
-        # === Import all handlers and states from handlers/ ===
+        # Import all handlers and states from handlers/
         from handlers.main_menu_handler import (
             start, cancel, main_menu_callback,
             CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         )
         from handlers.produk_pilih_handler import produk_pilih_callback
-        from handlers.order_handler import input_tujuan_step, handle_konfirmasi
+        from handlers.input_tujuan_handler import input_tujuan_step, handle_konfirmasi
         from handlers.topup_handler import (
             topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
             admin_topup_list_callback, admin_topup_detail_callback
@@ -83,7 +81,7 @@ def main():
         )
         dp.add_handler(topup_conv_handler)
 
-        # === Status Cek Conversation ===
+        # === Status Conversation ===
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
             states={
@@ -139,7 +137,6 @@ def main():
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
 
-        # === Error logging handler ===
         def error_handler(update, context):
             err_msg = f"Error: {context.error}"
             logger.error(err_msg)
