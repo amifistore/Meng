@@ -3,7 +3,7 @@ import random
 import uuid
 import time
 from io import BytesIO
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
 from PIL import Image
@@ -21,7 +21,6 @@ def log_topup_error(error_text):
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_text}\n")
 
 def log_admin_action(admin_id, action, target_id, topup_id, detail=""):
-    # Contoh pencatatan log aksi admin, bisa dimasukkan ke tabel log_admin_action
     with open("admin_action.log", "a") as f:
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ADMIN:{admin_id} ACTION:{action} TARGET:{target_id} TOPUP_ID:{topup_id} {detail}\n")
 
@@ -225,3 +224,56 @@ def admin_topup_callback(update, context):
             )
         except Exception as e:
             log_topup_error(f"ERROR kirim ke user: {e}")
+
+# === RIWAYAT TOPUP USER (ADMIN MENU) ===
+def admin_topup_list_callback(update, context):
+    query = update.callback_query
+    user = query.from_user
+    query.answer()
+
+    # Pastikan hanya admin yang bisa akses
+    if user.id not in ADMIN_IDS:
+        query.edit_message_text("❌ Kamu bukan admin.")
+        return
+
+    # Dummy: ganti dengan get_topup_pending_list() dari DB
+    topup_list = [
+        {'id': 'TUP123', 'user_id': 1111, 'nominal': 15000, 'waktu': '2025-09-28 03:55:00', 'status': 'pending'},
+        {'id': 'TUP124', 'user_id': 2222, 'nominal': 35000, 'waktu': '2025-09-28 03:56:00', 'status': 'pending'}
+    ]
+
+    if not topup_list:
+        query.edit_message_text("Tidak ada transaksi top up pending.")
+        return
+
+    msg = "<b>🧾 Daftar Pending Top Up User:</b>\nPilih transaksi untuk approve/batal.\n\n"
+    keyboard = []
+    for t in topup_list:
+        label = f"{t.get('id','-')} | Rp {t.get('nominal',0):,} | UserID: {t.get('user_id','-')}"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"admin_topup_detail|{t['id']}")])
+    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")])
+    query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+
+def admin_topup_detail_callback(update, context):
+    query = update.callback_query
+    topup_id = query.data.split("|")[1]
+    # Dummy: ganti dengan get_topup_by_id() dari DB
+    t = {'id': topup_id, 'user_id': 1111, 'nominal': 15000, 'waktu': '2025-09-28 03:55:00', 'status': 'pending'}
+    if not t:
+        query.edit_message_text("❌ Top up tidak ditemukan.")
+        return
+    msg = (
+        f"<b>💸 Detail Top Up</b>\n"
+        f"ID: <code>{t.get('id')}</code>\n"
+        f"User: <code>{t.get('user_id')}</code>\n"
+        f"Nominal: <b>Rp {t.get('nominal'):,}</b>\n"
+        f"Waktu: <code>{t.get('waktu')}</code>\n"
+        f"Status: <b>{t.get('status','pending')}</b>\n\n"
+        "Aksi admin:"
+    )
+    keyboard = [
+        [InlineKeyboardButton("✅ Approve", callback_data=f"topup_approve|{topup_id}|{t.get('user_id')}"),
+         InlineKeyboardButton("❌ Cancel", callback_data=f"topup_batal|{topup_id}|{t.get('user_id')}")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="riwayat_topup_admin")]
+    ]
+    query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
