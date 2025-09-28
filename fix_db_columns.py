@@ -19,7 +19,7 @@ def fix_tables():
     cur = conn.cursor()
 
     # riwayat_saldo
-    add_column(cur, "riwayat_saldo", "perubahan", "INTEGER", 0)
+    add_column(cur, "riwayat_saldo", "perubahan", "INTEGER", 0)      # Pastikan ini ADA!
     add_column(cur, "riwayat_saldo", "tipe", "TEXT")
     add_column(cur, "riwayat_saldo", "keterangan", "TEXT")
     add_column(cur, "riwayat_saldo", "tanggal", "TEXT")
