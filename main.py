@@ -33,7 +33,9 @@ def main():
         from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
-        from handlers.topup_handler import topup_callback, topup_nominal_step, TOPUP_NOMINAL
+        from handlers.topup_handler import (
+            topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback
+        )
         from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
@@ -68,6 +70,11 @@ def main():
         )
         dp.add_handler(topup_conv_handler)
         print("✅ Top Up conversation handler added")
+        
+        # Handler untuk notifikasi admin approve/batal topup
+        dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
+        dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_batal|'))
+        print("✅ Top Up admin approval handler added")
         
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
