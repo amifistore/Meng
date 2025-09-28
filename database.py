@@ -1,103 +1,115 @@
-# database.py - PERBAIKI SEMUA AKSES KE TABEL riwayat
 import sqlite3
-import time
+import os
+from datetime import datetime
 
-DB_PATH = "db_bot.db"
+DB_PATH = os.path.join(os.path.dirname(__file__), "botdb.sqlite3")
 
 def get_conn():
     return sqlite3.connect(DB_PATH)
 
-def init_db():
-    """Initialize database - COMPATIBILITY FUNCTION"""
-    # Database sudah di-init oleh module lain, jadi tidak perlu buat table di sini
-    print("[COMPAT] Database sudah diinisialisasi oleh module lain")
-    return True
+def setup_db():
+    conn = get_conn()
+    cur = conn.cursor()
+    # Tabel user saldo
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_saldo (
+        user_id INTEGER PRIMARY KEY,
+        saldo INTEGER DEFAULT 0
+    )""")
+    # Tabel riwayat transaksi
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS riwayat (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ref_id TEXT,
+        user_id INTEGER,
+        produk_kode TEXT,
+        tujuan TEXT,
+        harga INTEGER,
+        tanggal TEXT,
+        status TEXT,
+        keterangan TEXT
+    )""")
+    conn.commit()
+    conn.close()
 
-def simpan_riwayat(ref_id, user_id, produk_kode, tujuan, harga, status="pending", keterangan=""):
-    """Simpan riwayat transaksi - COMPATIBILITY FUNCTION"""
-    try:
-        from riwayat import tambah_riwayat
-        
-        transaksi = {
-            "ref_id": ref_id,
-            "kode": produk_kode,
-            "tujuan": tujuan,
-            "harga": harga,
-            "status": status,
-            "keterangan": keterangan,
-            "sn": "",
-            "raw_response": ""
-        }
-        
-        return tambah_riwayat(user_id, transaksi)
-        
-    except Exception as e:
-        print(f"[ERROR] Gagal simpan riwayat: {e}")
-        return False
+def get_saldo(user_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT saldo FROM user_saldo WHERE user_id=?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row[0] if row else 0
 
-def update_status_riwayat(ref_id, status, keterangan=""):
-    """Update status riwayat - COMPATIBILITY FUNCTION"""
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-        
-        # Update di riwayat_order (tabel baru)
-        cur.execute("UPDATE riwayat_order SET status=?, keterangan=? WHERE ref_id=?", 
-                   (status, keterangan, ref_id))
-        
-        # Juga update di riwayat (tabel compatibility)
-        cur.execute("UPDATE riwayat SET status=?, keterangan=? WHERE ref_id=?", 
-                   (status, keterangan, ref_id))
-        
-        conn.commit()
-        conn.close()
-        return True
-        
-    except Exception as e:
-        print(f"[ERROR] Gagal update status riwayat: {e}")
-        return False
+def tambah_saldo(user_id, nominal):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("INSERT OR IGNORE INTO user_saldo(user_id, saldo) VALUES (?, 0)", (user_id,))
+    cur.execute("UPDATE user_saldo SET saldo=saldo+? WHERE user_id=?", (nominal, user_id))
+    conn.commit()
+    conn.close()
+
+def kurang_saldo(user_id, nominal):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE user_saldo SET saldo=saldo-? WHERE user_id=?", (nominal, user_id))
+    conn.commit()
+    conn.close()
+
+def tambah_riwayat(user_id, transaksi):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO riwayat (ref_id, user_id, produk_kode, tujuan, harga, tanggal, status, keterangan)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        transaksi.get("ref_id"),
+        user_id,
+        transaksi.get("kode"),
+        transaksi.get("tujuan"),
+        transaksi.get("harga"),
+        transaksi.get("tanggal", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        transaksi.get("status"),
+        transaksi.get("sn") or transaksi.get("keterangan") or ""
+    ))
+    conn.commit()
+    conn.close()
 
 def get_riwayat_by_refid(ref_id):
-    """Ambil riwayat by ref_id - COMPATIBILITY FUNCTION"""
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-        
-        # Coba ambil dari riwayat_order dulu
-        cur.execute("SELECT * FROM riwayat_order WHERE ref_id=? ORDER BY id DESC LIMIT 1", (ref_id,))
-        row = cur.fetchone()
-        
-        if not row:
-            # Fallback ke riwayat (compatibility)
-            cur.execute("SELECT * FROM riwayat WHERE ref_id=? ORDER BY id DESC LIMIT 1", (ref_id,))
-            row = cur.fetchone()
-        
-        conn.close()
-        return row
-        
-    except Exception as e:
-        print(f"[ERROR] Gagal get riwayat by refid: {e}")
-        return None
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM riwayat WHERE ref_id=? ORDER BY id DESC LIMIT 1", (ref_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row
 
-def get_semua_riwayat(limit=20):
-    """Ambil semua riwayat - COMPATIBILITY FUNCTION"""
-    try:
-        from riwayat import cari_riwayat_order
-        return cari_riwayat_order(limit=limit)
-        
-    except Exception as e:
-        print(f"[ERROR] Gagal get semua riwayat: {e}")
-        return []
+def update_riwayat_status(ref_id, status, keterangan):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE riwayat SET status=?, keterangan=? WHERE ref_id=?", (status, keterangan, ref_id))
+    conn.commit()
+    conn.close()
 
-def get_riwayat_user(user_id, limit=10):
-    """Ambil riwayat user - COMPATIBILITY FUNCTION"""
-    try:
-        from riwayat import get_riwayat_user as get_user_riwayat
-        return get_user_riwayat(user_id, limit)
-        
-    except Exception as e:
-        print(f"[ERROR] Gagal get riwayat user: {e}")
-        return []
+def get_all_user_ids():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM user_saldo")
+    rows = cur.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
 
-# Initialize compatibility
-init_db()
+def get_riwayat_saldo(user_id=None, limit=10):
+    conn = get_conn()
+    cur = conn.cursor()
+    if user_id is None:
+        cur.execute("SELECT tanggal, user_id, status, harga, keterangan FROM riwayat ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+    else:
+        cur.execute("SELECT tanggal, status, harga, keterangan FROM riwayat WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit))
+        rows = cur.fetchall()
+    conn.close()
+    return rows
+
+# Panggil setup_db() sekali saat inisialisasi
+if __name__ == "__main__":
+    setup_db()
+    print("Database initialized.")
