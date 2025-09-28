@@ -4,7 +4,7 @@ from markup import get_menu
 from provider import create_trx
 from saldo import get_saldo_user, kurang_saldo_user
 from riwayat import tambah_riwayat
-import random
+import uuid
 import time
 
 # States
@@ -17,7 +17,8 @@ def handle_input_tujuan(update, context):
     # Cancel command
     if text == '/batal':
         context.user_data.clear()
-        update.message.reply_text("❌ Order dibatalkan.", reply_markup=get_menu(user.id))
+        info_text, markup = get_menu(user.id)
+        update.message.reply_text("❌ Order dibatalkan.", reply_markup=markup)
         return ConversationHandler.END
     
     # Validate phone number (min 10 digit, all digit)
@@ -32,25 +33,27 @@ def handle_input_tujuan(update, context):
     # Get product from context
     produk = context.user_data.get("produk")
     if not produk:
-        update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=get_menu(user.id))
+        info_text, markup = get_menu(user.id)
+        update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=markup)
         return ConversationHandler.END
     
     # Check saldo
     saldo = get_saldo_user(user.id)
     if saldo < produk['harga']:
+        info_text, markup = get_menu(user.id)
         update.message.reply_text(
             f"❌ Saldo tidak cukup!\n"
             f"Produk: {produk['nama']} - Rp {produk['harga']:,}\n"
             f"Saldo kamu: Rp {saldo:,}\n\n"
             "Silakan top up terlebih dahulu.",
-            reply_markup=get_menu(user.id)
+            reply_markup=markup
         )
         return ConversationHandler.END
     
     # Save destination
     context.user_data["tujuan"] = text
-    context.user_data["ref_id"] = f"TRX{random.randint(100000, 999999)}"
-    
+    context.user_data["ref_id"] = str(uuid.uuid4())
+
     # Modern: Gunakan tombol konfirmasi/batal
     keyboard = [
         [InlineKeyboardButton("✅ Konfirmasi", callback_data="order_konfirmasi"),
@@ -78,31 +81,51 @@ def handle_konfirmasi(update, context):
         data = query.data
         if data == "order_batal":
             context.user_data.clear()
-            query.edit_message_text("❌ Order dibatalkan.", reply_markup=get_menu(user.id))
+            info_text, markup = get_menu(user.id)
+            query.edit_message_text("❌ Order dibatalkan.", reply_markup=markup)
             return ConversationHandler.END
         if data == "order_konfirmasi":
             produk = context.user_data.get("produk")
             tujuan = context.user_data.get("tujuan")
             ref_id = context.user_data.get("ref_id")
             if not all([produk, tujuan, ref_id]):
-                query.edit_message_text("❌ Data order tidak lengkap. Silakan mulai lagi.", reply_markup=get_menu(user.id))
+                info_text, markup = get_menu(user.id)
+                query.edit_message_text("❌ Data order tidak lengkap. Silakan mulai lagi.", reply_markup=markup)
                 return ConversationHandler.END
             msg_proc = query.edit_message_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                if result.get('status') == 'success':
+                # Tampilkan seluruh response ke user/admin
+                raw_resp_text = str(result)
+                query.bot.send_message(
+                    chat_id=user.id,
+                    text=f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                status = str(result.get('status', '')).lower()
+                message = str(result.get('message', '')).lower()
+                status_code = result.get('status_code', None)
+
+                # Cek sukses order
+                if (
+                    'sukses' in status or
+                    status == 'success' or
+                    'success' in message or
+                    status == 'ok' or
+                    (status_code is not None and str(status_code) == '0')
+                ):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
-                        "produk": produk['nama'],
                         "kode": produk['kode'],
-                        "harga": produk['harga'],
                         "tujuan": tujuan,
-                        "status": "success",
+                        "harga": produk['harga'],
                         "tanggal": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "sn" : result.get('sn', ''),
-                        "response": result
+                        "status": "success",
+                        "sn": result.get('sn', ''),
+                        "keterangan": result.get('message', '')
                     }
+                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     msg_proc.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
@@ -135,39 +158,55 @@ def handle_konfirmasi(update, context):
                 context.user_data.clear()
                 return ConversationHandler.END
         # fallback: jika data lain
-        query.edit_message_text("❌ Pilihan tidak valid.", reply_markup=get_menu(user.id))
+        info_text, markup = get_menu(user.id)
+        query.edit_message_text("❌ Pilihan tidak valid.", reply_markup=markup)
         return ConversationHandler.END
     else:
         user = update.message.from_user
         text = update.message.text.strip().upper()
         if text == 'BATAL':
             context.user_data.clear()
-            update.message.reply_text("❌ Order dibatalkan.", reply_markup=get_menu(user.id))
+            info_text, markup = get_menu(user.id)
+            update.message.reply_text("❌ Order dibatalkan.", reply_markup=markup)
             return ConversationHandler.END
         if text == 'YA':
-            # Proses order sama seperti tombol Konfirmasi
             produk = context.user_data.get("produk")
             tujuan = context.user_data.get("tujuan")
             ref_id = context.user_data.get("ref_id")
             if not all([produk, tujuan, ref_id]):
-                update.message.reply_text("❌ Data order tidak lengkap. Silakan mulai lagi.", reply_markup=get_menu(user.id))
+                info_text, markup = get_menu(user.id)
+                update.message.reply_text("❌ Data order tidak lengkap. Silakan mulai lagi.", reply_markup=markup)
                 return ConversationHandler.END
             processing_msg = update.message.reply_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                if result.get('status') == 'success':
+                raw_resp_text = str(result)
+                update.message.reply_text(
+                    f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                status = str(result.get('status', '')).lower()
+                message = str(result.get('message', '')).lower()
+                status_code = result.get('status_code', None)
+                if (
+                    'sukses' in status or
+                    status == 'success' or
+                    'success' in message or
+                    status == 'ok' or
+                    (status_code is not None and str(status_code) == '0')
+                ):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
-                        "produk": produk['nama'],
                         "kode": produk['kode'],
-                        "harga": produk['harga'],
                         "tujuan": tujuan,
-                        "status": "success",
+                        "harga": produk['harga'],
                         "tanggal": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "sn" : result.get('sn', ''),
-                        "response": result
+                        "status": "success",
+                        "sn": result.get('sn', ''),
+                        "keterangan": result.get('message', '')
                     }
+                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     processing_msg.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
