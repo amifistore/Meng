@@ -26,7 +26,6 @@ def main():
         )
 
         # === Import all handlers and states from handlers/ ===
-        # Pastikan semua handler/function sudah ada di file yang diimport!
         from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
@@ -34,7 +33,12 @@ def main():
         from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
-        from handlers.admin_produk_handler import admin_edit_produk_step
+        from handlers.admin_produk_handler import (
+            admin_edit_produk_callback,
+            admin_edit_harga_prompt,
+            admin_edit_deskripsi_prompt,
+            admin_edit_produk_step
+        )
         from handlers.produk_daftar_handler import lihat_produk_callback
         from handlers.status_handler import cek_status_callback, input_refid_step, INPUT_REFID
 
@@ -81,6 +85,21 @@ def main():
         )
         dp.add_handler(status_conv_handler)
 
+        # === Admin Edit Produk Conversation ===
+        admin_edit_conv_handler = ConversationHandler(
+            entry_points=[
+                CallbackQueryHandler(admin_edit_harga_prompt, pattern='^editharga\\|'),
+                CallbackQueryHandler(admin_edit_deskripsi_prompt, pattern='^editdeskripsi\\|'),
+            ],
+            states={
+                4: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
+            },
+            fallbacks=[],
+            allow_reentry=True,
+            name="admin_edit_conversation"
+        )
+        dp.add_handler(admin_edit_conv_handler)
+
         # === CallbackQuery Handlers for ALL Menu ===
         dp.add_handler(CallbackQueryHandler(start, pattern='^start$'))
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
@@ -89,10 +108,10 @@ def main():
         dp.add_handler(CallbackQueryHandler(stock_akrab_callback, pattern='^stock_akrab$'))
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
-        dp.add_handler(CallbackQueryHandler(admin_edit_produk_step, pattern='^manajemen_produk$'))
+        dp.add_handler(CallbackQueryHandler(admin_edit_produk_callback, pattern='^admin_edit_produk\\|'))
+        dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^manajemen_produk$'))
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_main$'))
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_admin$'))
-        # Tambahkan handler lain jika ada menu baru!
 
         # === Handler untuk Approve/Batal Topup Admin ===
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
