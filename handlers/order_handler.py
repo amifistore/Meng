@@ -95,7 +95,25 @@ def handle_konfirmasi(update, context):
             msg_proc = query.edit_message_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                if result.get('status') == 'success':
+                # Tampilkan seluruh response ke user/admin
+                raw_resp_text = str(result)
+                query.bot.send_message(
+                    chat_id=user.id,
+                    text=f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                status = str(result.get('status', '')).lower()
+                message = str(result.get('message', '')).lower()
+                status_code = result.get('status_code', None)
+
+                # Cek sukses order
+                if (
+                    'sukses' in status or
+                    status == 'success' or
+                    'success' in message or
+                    status == 'ok' or
+                    (status_code is not None and str(status_code) == '0')
+                ):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
@@ -162,7 +180,21 @@ def handle_konfirmasi(update, context):
             processing_msg = update.message.reply_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                if result.get('status') == 'success':
+                raw_resp_text = str(result)
+                update.message.reply_text(
+                    f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                status = str(result.get('status', '')).lower()
+                message = str(result.get('message', '')).lower()
+                status_code = result.get('status_code', None)
+                if (
+                    'sukses' in status or
+                    status == 'success' or
+                    'success' in message or
+                    status == 'ok' or
+                    (status_code is not None and str(status_code) == '0')
+                ):
                     kurang_saldo_user(user.id, produk['harga'], tipe="order", keterangan=f"Order {produk['kode']} tujuan {tujuan}")
                     transaksi = {
                         "ref_id": ref_id,
