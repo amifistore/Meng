@@ -9,9 +9,11 @@ from PIL import Image
 
 TOPUP_NOMINAL = 3
 
+# Ganti dengan chat_id admin atau grup admin (contoh grup: -100xxxxxxxxxx)
+ADMIN_CHAT_ID = 1234567890
+
 QRIS_TEMPLATE_PATH = "qris_template.png"
 QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506469550303UMI51440014ID.CO.QRIS.WWW0215ID10243341364120303UMI5204569753033605802ID5923Amifi Store, Kmb, TLGSR6009BONDOWOSO61056827262070703A01630431E8"
-ADMIN_CHAT_ID = 1234567890  # Ganti dengan chat_id Admin atau grup admin Anda
 
 def log_topup_error(error_text):
     with open("topup_error.log", "a") as f:
@@ -65,24 +67,24 @@ def topup_callback(update, context):
     return TOPUP_NOMINAL
 
 def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id):
-    text = (
-        f"💸 <b>TOP UP BARU</b>\n"
-        f"User: <code>{user.id}</code> ({user.full_name})\n"
-        f"Username: @{user.username}\n"
-        f"Nominal: <b>Rp {nominal:,}</b>\n"
-        f"Total bayar (kode unik): <b>Rp {total_bayar:,}</b> (unik: <b>{kode_unik:02d}</b>)\n"
-        f"TopUp ID: <code>{topup_id}</code>\n"
-        f"Waktu: <code>{time.strftime('%Y-%m-%d %H:%M:%S')}</code>\n"
-        "🔔 Menunggu user upload bukti transfer.\n"
-        "<b>Aksi Admin:</b>"
-    )
-    buttons = [
-        [
-            InlineKeyboardButton("✅ Approve", callback_data=f"topup_approve|{topup_id}|{user.id}"),
-            InlineKeyboardButton("❌ Batal", callback_data=f"topup_batal|{topup_id}|{user.id}")
-        ]
-    ]
     try:
+        text = (
+            f"💸 <b>TOP UP BARU</b>\n"
+            f"User: <code>{user.id}</code> ({user.full_name})\n"
+            f"Username: @{user.username}\n"
+            f"Nominal: <b>Rp {nominal:,}</b>\n"
+            f"Total bayar (kode unik): <b>Rp {total_bayar:,}</b> (unik: <b>{kode_unik:02d}</b>)\n"
+            f"TopUp ID: <code>{topup_id}</code>\n"
+            f"Waktu: <code>{time.strftime('%Y-%m-%d %H:%M:%S')}</code>\n"
+            "🔔 Menunggu user upload bukti transfer.\n"
+            "<b>Aksi Admin:</b>"
+        )
+        buttons = [
+            [
+                InlineKeyboardButton("✅ Approve", callback_data=f"topup_approve|{topup_id}|{user.id}"),
+                InlineKeyboardButton("❌ Batal", callback_data=f"topup_batal|{topup_id}|{user.id}")
+            ]
+        ]
         context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text=text,
@@ -133,6 +135,7 @@ def topup_nominal_step(update, context):
             "Scan QRIS berikut (aktif 15 menit).\n\n"
             "Setelah bayar, kirim bukti transfer dan tunggu konfirmasi admin."
         )
+        # Kirim QRIS ke user
         if qris_base64:
             try:
                 img = make_qris_image(qris_base64)
