@@ -17,26 +17,30 @@ def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
     print("=" * 50)
-
     try:
         from config import TOKEN
         print(f"✅ Token loaded: {TOKEN[:10]}...")
         from telegram.ext import (
             Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         )
+        # Import all handlers and states from handlers/
+        from saldo import init_db as init_saldo_db
+        from topup import init_db as init_topup_db
+        # Inisialisasi DB pada start
+        init_saldo_db()
+        init_topup_db()
 
-        # === Import all handlers and states from handlers/ ===
         from handlers.main_menu_handler import (
             start, cancel, main_menu_callback,
             CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         )
         from handlers.produk_pilih_handler import produk_pilih_callback
-        from handlers.order_handler import input_tujuan_step, handle_konfirmasi
+        from handlers.input_tujuan_handler import input_tujuan_step, handle_konfirmasi
         from handlers.topup_handler import (
             topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
             admin_topup_list_callback, admin_topup_detail_callback
         )
-        from handlers.riwayat_handler import riwayat_callback
+        from handlers.riwayat_handler import riwayat_callback, semua_riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
         from handlers.admin_produk_handler import (
@@ -61,7 +65,7 @@ def main():
                 CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
                 INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
                 KONFIRMASI: [
-                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order)$'),
+                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order|order_konfirmasi|order_batal)$'),
                     MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)
                 ]
             },
@@ -83,7 +87,7 @@ def main():
         )
         dp.add_handler(topup_conv_handler)
 
-        # === Status Cek Conversation ===
+        # === Status Conversation ===
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
             states={
@@ -115,6 +119,7 @@ def main():
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
         dp.add_handler(CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
+        dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern='^semua_riwayat$'))
         dp.add_handler(CallbackQueryHandler(stock_akrab_callback, pattern='^stock_akrab$'))
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
@@ -139,7 +144,6 @@ def main():
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
 
-        # === Error logging handler ===
         def error_handler(update, context):
             err_msg = f"Error: {context.error}"
             logger.error(err_msg)
