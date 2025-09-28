@@ -11,7 +11,9 @@ def init_db_saldo():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS saldo (
                 user_id INTEGER PRIMARY KEY,
-                saldo INTEGER DEFAULT 0
+                saldo INTEGER DEFAULT 0,
+                nama TEXT,
+                tanggal_daftar TEXT
             )
         """)
         # Tabel riwayat_saldo
@@ -89,7 +91,7 @@ def tambah_saldo_user(user_id, jumlah, tipe="manual", keterangan=""):
         cur.execute("SELECT saldo FROM saldo WHERE user_id = ?", (user_id,))
         row = cur.fetchone()
         if not row:
-            cur.execute("INSERT INTO saldo (user_id, saldo) VALUES (?, ?)", (user_id, jumlah))
+            cur.execute("INSERT INTO saldo (user_id, saldo, tanggal_daftar) VALUES (?, ?, datetime('now'))", (user_id, jumlah))
         else:
             cur.execute("UPDATE saldo SET saldo = saldo + ? WHERE user_id = ?", (jumlah, user_id))
         conn.commit()
@@ -105,3 +107,35 @@ def tambah_saldo_user(user_id, jumlah, tipe="manual", keterangan=""):
     except Exception as e:
         print(f"Error tambah_saldo_user: {e}")
         return False
+
+def get_riwayat_saldo(user_id, limit=20):
+    """
+    Mengambil riwayat saldo user dari tabel riwayat_saldo.
+    Return: list of dict
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, user_id, perubahan, tipe, keterangan, tanggal
+            FROM riwayat_saldo
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+        """, (user_id, limit))
+        rows = cur.fetchall()
+        conn.close()
+        riwayat = []
+        for row in rows:
+            riwayat.append({
+                "id": row[0],
+                "user_id": row[1],
+                "perubahan": row[2],
+                "tipe": row[3],
+                "keterangan": row[4],
+                "tanggal": row[5]
+            })
+        return riwayat
+    except Exception as e:
+        print(f"Error get_riwayat_saldo: {e}")
+        return []
