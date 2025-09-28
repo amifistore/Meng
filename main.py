@@ -29,7 +29,10 @@ def main():
         from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
-        from handlers.topup_handler import topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback
+        from handlers.topup_handler import (
+            topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
+            admin_topup_list_callback, admin_topup_detail_callback
+        )
         from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
@@ -52,6 +55,7 @@ def main():
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$')],
             states={
+                CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
                 INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
                 KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
             },
@@ -116,6 +120,10 @@ def main():
         # === Handler untuk Approve/Batal Topup Admin ===
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_batal|'))
+
+        # === Handler untuk Riwayat Top Up User (Admin) ===
+        dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern='^riwayat_topup_admin$'))
+        dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern='^admin_topup_detail\\|'))
 
         # === Fallback text handler (default reply) ===
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, start)) # Fallback: balas dengan menu
