@@ -9,7 +9,8 @@ from provider_qris import generate_qris
 from PIL import Image
 
 from saldo import tambah_saldo_user
-from topup import (
+from riwayat import tambah_riwayat
+from topup_db import (
     simpan_topup, update_status_topup, get_topup_by_id,
     get_topup_pending_list
 )
@@ -202,6 +203,17 @@ def admin_topup_callback(update, context):
         if t and t['status'] == "pending":
             tambah_saldo_user(t['user_id'], t['nominal'], tipe="topup", keterangan=f"TOPUP {topup_id}")
             update_status_topup(topup_id, "approved", admin_id)
+            # PATCH: Catat ke tabel riwayat juga!
+            transaksi = {
+                "ref_id": topup_id,
+                "kode": "TOPUP",  # kode produk untuk top up
+                "tujuan": "-",    # top up tidak punya tujuan
+                "harga": t['nominal'],
+                "tanggal": t.get('waktu', time.strftime("%Y-%m-%d %H:%M:%S")),
+                "status": "approved",
+                "keterangan": "Top up diapprove admin"
+            }
+            tambah_riwayat(t['user_id'], transaksi)
             query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
             try:
                 context.bot.send_message(
