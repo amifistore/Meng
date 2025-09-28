@@ -29,13 +29,13 @@ def main():
         from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
-        from handlers.topup_handler import topup_callback
+        from handlers.topup_handler import topup_callback, topup_nominal_step, TOPUP_NOMINAL
         from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
         from handlers.admin_produk_handler import admin_edit_produk_step
         from handlers.produk_daftar_handler import lihat_produk_callback
-        from handlers.status_handler import cek_status_callback
+        from handlers.status_handler import cek_status_callback, input_refid_step, INPUT_REFID
         # Tambahkan handler lain sesuai kebutuhan menu
         
         print("🔄 Setting up handlers...")
@@ -54,13 +54,37 @@ def main():
         dp.add_handler(order_conv_handler)
         print("✅ Order conversation handler added")
         
-        # Handler untuk menu utama sesuai callback
+        # Conversation Handler untuk Top Up
+        topup_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(topup_callback, pattern='^topup$')],
+            states={
+                TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
+            },
+            fallbacks=[],
+            allow_reentry=True,
+            name="topup_conversation"
+        )
+        dp.add_handler(topup_conv_handler)
+        print("✅ Top Up conversation handler added")
+        
+        # Conversation Handler untuk cek status transaksi (input refid)
+        status_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
+            states={
+                INPUT_REFID: [MessageHandler(Filters.text & ~Filters.command, input_refid_step)],
+            },
+            fallbacks=[],
+            allow_reentry=True,
+            name="status_conversation"
+        )
+        dp.add_handler(status_conv_handler)
+        print("✅ Status conversation handler added")
+        
+        # Handler untuk menu utama sesuai callback (NON-CONVERSATION)
         dp.add_handler(CallbackQueryHandler(start, pattern='^start$'))
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
-        dp.add_handler(CallbackQueryHandler(topup_callback, pattern='^topup$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
         dp.add_handler(CallbackQueryHandler(stock_akrab_callback, pattern='^stock_akrab$'))
-        dp.add_handler(CallbackQueryHandler(cek_status_callback, pattern='^cek_status$'))
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
         dp.add_handler(CallbackQueryHandler(admin_edit_produk_step, pattern='^manajemen_produk$'))
