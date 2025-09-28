@@ -7,6 +7,7 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 def menu_user(user_id):
+    # Info user: ID, saldo, riwayat transaksi
     info_text = f"🆔 <b>ID User:</b> <code>{user_id}</code>\n"
     saldo = get_saldo_user(user_id)
     info_text += f"💰 <b>Saldo:</b> Rp {saldo:,}\n"
