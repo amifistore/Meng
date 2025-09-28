@@ -1,35 +1,45 @@
 from telegram import ParseMode
 from saldo import get_riwayat_saldo, get_all_user_ids
-from topup import get_riwayat_topup_user
+from riwayat import get_riwayat_user, cari_riwayat_order
 from markup import get_menu, is_admin
 
 def riwayat_callback(update, context):
     """Callback untuk tombol Riwayat transaksi user di menu utama"""
     user = update.callback_query.from_user
     update.callback_query.answer()
-    riwayat_data = get_riwayat_saldo(user.id)
-    topup_data = get_riwayat_topup_user(user.id)
+    
+    # Ambil riwayat saldo dan order
+    riwayat_saldo_data = get_riwayat_saldo(user.id)
+    riwayat_order_data = get_riwayat_user(user.id)
+    
     msg = ""
-    if not riwayat_data and not topup_data:
+    if not riwayat_saldo_data and not riwayat_order_data:
         msg = "📄 *Riwayat Transaksi Kosong*\n\nBelum ada transaksi yang dilakukan."
     else:
-        msg = "📄 *Riwayat Saldo & Topup Terakhir*\n\n"
-        # Saldo/Order
-        if riwayat_data:
-            msg += "*Saldo/Order Terakhir:*\n"
-            for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
-                status = "✅" if trx[2] > 0 else "❌"
-                tipe = trx[1]
-                nominal = trx[2]
-                ket = trx[3]
-                waktu = trx[0]
-                msg += f"{i}. {status} {tipe} {nominal:+,}\n"
-                msg += f"   🕒 {waktu}\n   {ket}\n\n"
-        # Topup
-        if topup_data:
-            msg += "*Topup Terakhir:*\n"
-            for i, tup in enumerate(topup_data[:5], 1):
-                msg += f"{i}. ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+        msg = "📄 *Riwayat Transaksi Terakhir*\n\n"
+        
+        # Riwayat Saldo (topup/potongan)
+        if riwayat_saldo_data:
+            msg += "*Riwayat Saldo:*\n"
+            for i, trx in enumerate(riwayat_saldo_data[:5], 1):
+                tipe, jumlah, keterangan, tanggal = trx
+                status = "💰" if jumlah > 0 else "💸"
+                msg += f"{i}. {status} {tipe}: Rp {jumlah:+,}\n"
+                msg += f"   📝 {keterangan}\n"
+                msg += f"   🕒 {tanggal}\n\n"
+        
+        # Riwayat Order
+        if riwayat_order_data:
+            msg += "*Riwayat Order:*\n"
+            for i, order in enumerate(riwayat_order_data[:5], 1):
+                ref_id, produk, harga, tujuan, status, tanggal, sn, keterangan = order
+                status_icon = "✅" if status == "success" else "❌"
+                msg += f"{i}. {status_icon} {produk} - Rp {harga:,}\n"
+                msg += f"   📱 {tujuan} | 🆔 {ref_id[:8]}...\n"
+                if sn and sn != 'N/A':
+                    msg += f"   🎫 SN: {sn}\n"
+                msg += f"   🕒 {tanggal}\n\n"
+    
     info_text, markup = get_menu(user.id)
     update.callback_query.edit_message_text(
         msg,
@@ -41,6 +51,7 @@ def semua_riwayat_callback(update, context):
     """Callback untuk tombol Semua Riwayat (admin) di menu admin"""
     user = update.callback_query.from_user
     update.callback_query.answer()
+    
     if not is_admin(user.id):
         info_text, markup = get_menu(user.id)
         update.callback_query.edit_message_text(
@@ -48,37 +59,56 @@ def semua_riwayat_callback(update, context):
             reply_markup=markup
         )
         return
-    # FIX: Remove admin_mode keyword, use user_id=None and set limit
-    all_riwayat = get_riwayat_saldo(None, limit=50)
-    # Ambil semua topup dari semua user
+    
+    # Ambil semua riwayat saldo
+    all_riwayat_saldo = get_riwayat_saldo(limit=50)
+    all_user_ids = get_all_user_ids()
+    
     user_map = {}
-    total = 0
-    if all_riwayat:
-        for row in all_riwayat:
-            waktu, user_id, tipe, nominal, ket = row
+    total_saldo = 0
+    
+    # Process riwayat saldo
+    if all_riwayat_saldo:
+        for row in all_riwayat_saldo:
+            user_id, tipe, jumlah, keterangan, tanggal = row
             if user_id not in user_map:
-                user_map[user_id] = {"order": [], "topup": []}
-            user_map[user_id]["order"].append((waktu, tipe, nominal, ket))
-            total += nominal if nominal > 0 else 0
-    for uid in get_all_user_ids():
-        tups = get_riwayat_topup_user(uid)
-        if tups:
-            if uid not in user_map:
-                user_map[uid] = {"order": [], "topup": []}
-            user_map[uid]["topup"].extend(tups)
+                user_map[user_id] = {"saldo": [], "order": []}
+            user_map[user_id]["saldo"].append((tipe, jumlah, keterangan, tanggal))
+            total_saldo += jumlah
+    
+    # Process riwayat order untuk semua user
+    for user_id in all_user_ids:
+        riwayat_order = get_riwayat_user(user_id, limit=3)
+        if riwayat_order:
+            if user_id not in user_map:
+                user_map[user_id] = {"saldo": [], "order": []}
+            user_map[user_id]["order"].extend(riwayat_order)
+    
     if not user_map:
         msg = "📄 *Semua Riwayat Kosong*\n\nBelum ada transaksi dari semua user."
     else:
         msg = "📄 *Semua Riwayat Transaksi*\n\n"
         for user_id, transaksi in user_map.items():
             msg += f"👤 User `{user_id}`:\n"
-            for trx in transaksi["order"][-3:]:
-                status = "✅" if trx[2] > 0 else "❌"
-                msg += f"   {status} {trx[1]} {trx[2]:+,}\n   🕒 {trx[0]}\n   {trx[3]}\n"
-            for tup in transaksi["topup"][:2]:
-                msg += f"   💸 Topup ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+            
+            # Tampilkan riwayat saldo
+            for trx in transaksi["saldo"][:2]:
+                tipe, jumlah, keterangan, tanggal = trx
+                status = "💰" if jumlah > 0 else "💸"
+                msg += f"   {status} {tipe}: Rp {jumlah:+,}\n"
+                msg += f"   📝 {keterangan[:30]}...\n"
+            
+            # Tampilkan riwayat order
+            for order in transaksi["order"][:2]:
+                ref_id, produk, harga, tujuan, status, tanggal, sn, keterangan = order
+                status_icon = "✅" if status == "success" else "❌"
+                msg += f"   {status_icon} {produk}: Rp {harga:,}\n"
+                msg += f"   📱 {tujuan}\n"
+            
             msg += "\n"
-        msg += f"💰 *Total Transaksi: Rp {total:,}*"
+        
+        msg += f"💰 *Total Saldo Diproses: Rp {total_saldo:,}*"
+    
     info_text, markup = get_menu(user.id)
     update.callback_query.edit_message_text(
         msg,
@@ -89,27 +119,39 @@ def semua_riwayat_callback(update, context):
 def riwayat_user(update, context):
     """Bisa dipanggil via command (misal /riwayat) atau callback"""
     user = update.effective_user
-    riwayat_data = get_riwayat_saldo(user.id)
-    topup_data = get_riwayat_topup_user(user.id)
+    
+    # Ambil riwayat saldo dan order
+    riwayat_saldo_data = get_riwayat_saldo(user.id)
+    riwayat_order_data = get_riwayat_user(user.id)
+    
     msg = ""
-    if not riwayat_data and not topup_data:
+    if not riwayat_saldo_data and not riwayat_order_data:
         msg = "📄 *Riwayat Transaksi Kosong*\n\nBelum ada transaksi yang dilakukan."
     else:
-        msg = "📄 *Riwayat Saldo & Topup Terakhir*\n\n"
-        if riwayat_data:
-            msg += "*Saldo/Order Terakhir:*\n"
-            for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
-                status = "✅" if trx[2] > 0 else "❌"
-                tipe = trx[1]
-                nominal = trx[2]
-                ket = trx[3]
-                waktu = trx[0]
-                msg += f"{i}. {status} {tipe} {nominal:+,}\n"
-                msg += f"   🕒 {waktu}\n   {ket}\n\n"
-        if topup_data:
-            msg += "*Topup Terakhir:*\n"
-            for i, tup in enumerate(topup_data[:5], 1):
-                msg += f"{i}. ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+        msg = "📄 *Riwayat Transaksi Terakhir*\n\n"
+        
+        # Riwayat Saldo (topup/potongan)
+        if riwayat_saldo_data:
+            msg += "*Riwayat Saldo:*\n"
+            for i, trx in enumerate(riwayat_saldo_data[:5], 1):
+                tipe, jumlah, keterangan, tanggal = trx
+                status = "💰" if jumlah > 0 else "💸"
+                msg += f"{i}. {status} {tipe}: Rp {jumlah:+,}\n"
+                msg += f"   📝 {keterangan}\n"
+                msg += f"   🕒 {tanggal}\n\n"
+        
+        # Riwayat Order
+        if riwayat_order_data:
+            msg += "*Riwayat Order:*\n"
+            for i, order in enumerate(riwayat_order_data[:5], 1):
+                ref_id, produk, harga, tujuan, status, tanggal, sn, keterangan = order
+                status_icon = "✅" if status == "success" else "❌"
+                msg += f"{i}. {status_icon} {produk} - Rp {harga:,}\n"
+                msg += f"   📱 {tujuan} | 🆔 {ref_id[:8]}...\n"
+                if sn and sn != 'N/A':
+                    msg += f"   🎫 SN: {sn}\n"
+                msg += f"   🕒 {tanggal}\n\n"
+    
     info_text, markup = get_menu(user.id)
     update.message.reply_text(
         msg,
