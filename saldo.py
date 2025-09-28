@@ -57,11 +57,16 @@ def get_saldo_user(user_id):
     conn.close()
     return row[0] if row else 0
 
-def get_riwayat_saldo(user_id, limit=10):
+def get_riwayat_saldo(user_id=None, limit=10):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT waktu, tipe, nominal, keterangan FROM riwayat_saldo WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit))
-    rows = cur.fetchall()
+    if user_id is None:
+        # Admin mode: ambil semua riwayat
+        cur.execute("SELECT waktu, user_id, tipe, nominal, keterangan FROM riwayat_saldo ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+    else:
+        cur.execute("SELECT waktu, tipe, nominal, keterangan FROM riwayat_saldo WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit))
+        rows = cur.fetchall()
     conn.close()
     return rows
 
@@ -71,3 +76,11 @@ def reset_saldo_user(user_id):
     cur.execute("UPDATE saldo SET saldo = 0 WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
+
+def get_all_user_ids():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT user_id FROM saldo")
+    rows = cur.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
