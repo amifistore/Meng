@@ -28,6 +28,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+def setup_db():
+    # Alias agar bisa dipakai main.py
+    return init_db()
+
 def tambah_saldo_user(user_id, nominal, tipe="topup", keterangan=""):
     conn = get_conn()
     cur = conn.cursor()
