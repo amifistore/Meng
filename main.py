@@ -4,7 +4,7 @@ import time
 import logging
 import sqlite3
 import os
-import shutil   # <--- Tambahkan untuk hapus folder __pycache__
+import shutil
 
 # Setup logging
 logging.basicConfig(
@@ -36,17 +36,17 @@ def safe_int_convert(value):
         return 0
 
 def init_all_databases():
-    """Inisialisasi semua database dengan struktur yang benar (fix rmdir)"""
+    """Inisialisasi semua database dengan struktur yang benar"""
     print("🔄 Inisialisasi semua database...")
     try:
-        # Hapus cache Python (.pyc dan folder __pycache__)
+        # Hapus cache Python
         for root, dirs, files in os.walk("."):
             for file in files:
                 if file.endswith(".pyc"):
                     os.remove(os.path.join(root, file))
             for dir in dirs:
                 if dir == "__pycache__":
-                    shutil.rmtree(os.path.join(root, dir))  # fix: hapus folder beserta isinya
+                    shutil.rmtree(os.path.join(root, dir), ignore_errors=True)
 
         # Import modul untuk trigger auto-init
         import saldo
@@ -542,23 +542,6 @@ def main():
         import traceback
         traceback.print_exc()
         sys.exit(1)
-    # ... bagian atas tetap sama ...
-
-# ==================== ERROR HANDLER ====================
-def error_handler(update, context):
-    """Global error handler: log ke file, notif user, notif admin"""
-    error_msg = f"Error: {context.error}"
-    logger.error(error_msg)
-    log_error(error_msg)
-
-    # Notif user jika ada message
-    try:
-        if update and getattr(update, "effective_message", None):
-            update.effective_message.reply_text(
-                "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi atau laporkan ke admin."
-            )
-    except Exception as e:
-        logger.error(f"Error notif user: {e}")
 
 if __name__ == '__main__':
     main()
