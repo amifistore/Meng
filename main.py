@@ -10,6 +10,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def log_topup_error(error_text):
+    with open("topup_error.log", "a") as f:
+        f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_text}\n")
+
 def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
@@ -40,7 +44,6 @@ def main():
         
         print("🔄 Setting up handlers...")
         
-        # Conversation Handler untuk order produk
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
             states={
@@ -54,7 +57,6 @@ def main():
         dp.add_handler(order_conv_handler)
         print("✅ Order conversation handler added")
         
-        # Conversation Handler untuk Top Up
         topup_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(topup_callback, pattern='^topup$')],
             states={
@@ -67,7 +69,6 @@ def main():
         dp.add_handler(topup_conv_handler)
         print("✅ Top Up conversation handler added")
         
-        # Conversation Handler untuk cek status transaksi (input refid)
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
             states={
@@ -80,7 +81,6 @@ def main():
         dp.add_handler(status_conv_handler)
         print("✅ Status conversation handler added")
         
-        # Handler untuk menu utama sesuai callback (NON-CONVERSATION)
         dp.add_handler(CallbackQueryHandler(start, pattern='^start$'))
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
@@ -88,19 +88,17 @@ def main():
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
         dp.add_handler(CallbackQueryHandler(admin_edit_produk_step, pattern='^manajemen_produk$'))
-        # Admin fitur lain, misal semua_riwayat, dsb...
-        
-        # Handler fallback untuk callback yang tidak dikenali
         dp.add_handler(CallbackQueryHandler(main_menu_callback))
         
-        # Command handlers
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
         print("✅ Command handlers added")
         
         def error_handler(update, context):
-            logger.error(f"Error: {context.error}")
+            err_msg = f"Error: {context.error}"
+            logger.error(err_msg)
+            log_topup_error(err_msg)
         
         dp.add_error_handler(error_handler)
         
@@ -132,6 +130,7 @@ def main():
         print("\n🛑 Bot stopped by user")
     except Exception as e:
         logger.error(f"❌ Failed to start: {e}")
+        log_topup_error(f"❌ Failed to start: {e}")
         print(f"💡 Error details: {e}")
         import traceback
         traceback.print_exc()
