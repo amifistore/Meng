@@ -16,8 +16,9 @@ def stock_akrab_callback(update: Update, context: CallbackContext):
         msg = format_stock_akrab(data)
     except Exception as e:
         msg = f"<b>❌ Gagal mengambil data stok dari provider:</b>\n{str(e)}"
+    _, markup = get_menu(query.from_user.id)
     query.edit_message_text(
         msg,
         parse_mode="HTML",
-        reply_markup=get_menu(query.from_user.id)
+        reply_markup=markup
     )
