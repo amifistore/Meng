@@ -17,30 +17,20 @@ def main():
     print("=" * 50)
     print("🔧 BOT STARTING...")
     print("=" * 50)
+
     try:
         from config import TOKEN
         print(f"✅ Token loaded: {TOKEN[:10]}...")
         from telegram.ext import (
             Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
         )
-        # Import all handlers and states from handlers/
-        from saldo import init_db as init_saldo_db
-        from topup import init_db as init_topup_db
-        # Inisialisasi DB pada start
-        init_saldo_db()
-        init_topup_db()
 
-        from handlers.main_menu_handler import (
-            start, cancel, main_menu_callback,
-            CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
-        )
+        # === Import all handlers and states from handlers/ ===
+        from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
-        from handlers.input_tujuan_handler import input_tujuan_step, handle_konfirmasi
-        from handlers.topup_handler import (
-            topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback,
-            admin_topup_list_callback, admin_topup_detail_callback
-        )
-        from handlers.riwayat_handler import riwayat_callback, semua_riwayat_callback
+        from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
+        from handlers.topup_handler import topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback
+        from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
         from handlers.admin_produk_handler import (
@@ -58,16 +48,12 @@ def main():
 
         print("🔄 Setting up handlers...")
 
-        # === Order Produk Conversation ===
+        # === Order Conversation ===
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$')],
             states={
-                CHOOSING_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
-                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, input_tujuan_step)],
-                KONFIRMASI: [
-                    CallbackQueryHandler(handle_konfirmasi, pattern='^(konfirmasi_order|batal_order|order_konfirmasi|order_batal)$'),
-                    MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)
-                ]
+                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+                KONFIRMASI: [MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
             },
             fallbacks=[CommandHandler('batal', cancel)],
             allow_reentry=True,
@@ -81,7 +67,7 @@ def main():
             states={
                 TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)],
             },
-            fallbacks=[CommandHandler('batal', cancel)],
+            fallbacks=[],
             allow_reentry=True,
             name="topup_conversation"
         )
@@ -93,7 +79,7 @@ def main():
             states={
                 INPUT_REFID: [MessageHandler(Filters.text & ~Filters.command, input_refid_step)],
             },
-            fallbacks=[CommandHandler('batal', cancel)],
+            fallbacks=[],
             allow_reentry=True,
             name="status_conversation"
         )
@@ -108,7 +94,7 @@ def main():
             states={
                 4: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)],
             },
-            fallbacks=[CommandHandler('batal', cancel)],
+            fallbacks=[],
             allow_reentry=True,
             name="admin_edit_conversation"
         )
@@ -119,7 +105,6 @@ def main():
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
         dp.add_handler(CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
-        dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern='^semua_riwayat$'))
         dp.add_handler(CallbackQueryHandler(stock_akrab_callback, pattern='^stock_akrab$'))
         dp.add_handler(CallbackQueryHandler(lihat_saldo_callback, pattern='^lihat_saldo$'))
         dp.add_handler(CallbackQueryHandler(tambah_saldo_callback, pattern='^tambah_saldo$'))
@@ -128,13 +113,9 @@ def main():
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_main$'))
         dp.add_handler(CallbackQueryHandler(main_menu_callback, pattern='^back_admin$'))
 
-        # === Handler Approve/Batal Topup Admin ===
+        # === Handler untuk Approve/Batal Topup Admin ===
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_batal|'))
-
-        # === Handler Riwayat Top Up User (Admin) ===
-        dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern='^riwayat_topup_admin$'))
-        dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern='^admin_topup_detail\\|'))
 
         # === Fallback text handler (default reply) ===
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, start)) # Fallback: balas dengan menu
