@@ -9,8 +9,11 @@ def column_exists(cur, table, column):
 def add_column(cur, table, column, coltype, default=None):
     if not column_exists(cur, table, column):
         default_sql = f" DEFAULT {default}" if default is not None else ""
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}{default_sql}")
-        print(f"✅ Kolom {column} ditambahkan ke {table}")
+        try:
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}{default_sql}")
+            print(f"✅ Kolom {column} ditambahkan ke {table}")
+        except Exception as e:
+            print(f"❌ Error tambah kolom {column} ke {table}: {e}")
     else:
         print(f"ℹ️ Kolom {column} sudah ada di {table}")
 
@@ -19,7 +22,7 @@ def fix_tables():
     cur = conn.cursor()
 
     # riwayat_saldo
-    add_column(cur, "riwayat_saldo", "perubahan", "INTEGER", 0)      # Pastikan ini ADA!
+    add_column(cur, "riwayat_saldo", "perubahan", "INTEGER", 0)
     add_column(cur, "riwayat_saldo", "tipe", "TEXT")
     add_column(cur, "riwayat_saldo", "keterangan", "TEXT")
     add_column(cur, "riwayat_saldo", "tanggal", "TEXT")
