@@ -1,7 +1,7 @@
 import base64
 import random
+import time
 from io import BytesIO
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
 from PIL import Image
@@ -31,6 +31,18 @@ def make_qris_image(qris_base64, template_path=QRIS_TEMPLATE_PATH):
         return output
     except Exception:
         return None
+
+def topup_callback(update, context):
+    query = update.callback_query
+    query.answer()
+    unique = int(time.time())
+    query.edit_message_text(
+        "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
+        "Contoh: <code>25000</code>\n"
+        f"Kode unik: <code>{unique}</code>",
+        parse_mode="HTML"
+    )
+    return TOPUP_NOMINAL
 
 def topup_nominal_step(update, context):
     text = update.message.text.strip()
@@ -74,28 +86,3 @@ def topup_nominal_step(update, context):
     except Exception as e:
         update.message.reply_text(f"❌ Error: {str(e)}")
     return ConversationHandler.END
-
-def topup_callback(update, context):
-    query = update.callback_query
-    query.answer()
-    try:
-        # Agar tidak error "Message is not modified", tambahkan sedikit variasi pesan (misal, timestamp atau emoji acak)
-        import time
-        unique_id = int(time.time())
-        new_text = (
-            "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
-            "Contoh: <code>25000</code>\n"
-            f"Kode unik: <code>{unique_id}</code>"
-        )
-        query.edit_message_text(
-            new_text,
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        if "Message is not modified" in str(e):
-            # Abaikan error ini, tidak fatal
-            pass
-        else:
-            raise
-    # Kembalikan state agar ConversationHandler lanjut ke step nominal
-    return TOPUP_NOMINAL
