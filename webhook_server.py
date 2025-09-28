@@ -7,7 +7,8 @@ from flask import Flask, request, jsonify
 from telegram import ParseMode
 
 # Import database functions
-from database import get_riwayat_by_refid, update_riwayat_status, tambah_saldo, kurang_saldo, get_saldo, get_menu
+from database import get_riwayat_by_refid, update_riwayat_status, tambah_saldo, kurang_saldo, get_saldo
+from markup import get_menu
 
 logger = logging.getLogger(__name__)
 
@@ -66,28 +67,34 @@ def create_webhook_app(updater, webhook_port):
             
             update_riwayat_status(reffid, status_text.upper(), keterangan)
 
+            info_text, markup = get_menu(user_id)
+
             if "sukses" in status_text.lower():
                 try:
-                    updater.bot.send_message(user_id, 
+                    updater.bot.send_message(
+                        user_id, 
                         f"✅ <b>TRANSAKSI SUKSES</b>\n\n"
                         f"Produk: [{produk_kode}] dengan harga Rp {harga:,} telah berhasil dikirim.\n"
                         f"Keterangan: {keterangan}\n\n"
                         f"Saldo Anda sekarang: Rp {get_saldo(user_id):,}",
                         parse_mode=ParseMode.HTML,
-                        reply_markup=get_menu(user_id))
+                        reply_markup=markup
+                    )
                 except Exception as e:
                     logger.error(f"Failed to send success notification to user {user_id}: {e}")
             
             elif "gagal" in status_text.lower() or "batal" in status_text.lower():
                 tambah_saldo(user_id, harga)
                 try:
-                    updater.bot.send_message(user_id, 
+                    updater.bot.send_message(
+                        user_id, 
                         f"❌ <b>TRANSAKSI GAGAL</b>\n\n"
                         f"Transaksi untuk produk [{produk_kode}] dengan harga Rp {harga:,} GAGAL.\n"
                         f"Keterangan: {keterangan}\n\n"
                         f"Saldo Anda telah dikembalikan. Saldo sekarang: Rp {get_saldo(user_id):,}",
                         parse_mode=ParseMode.HTML,
-                        reply_markup=get_menu(user_id))
+                        reply_markup=markup
+                    )
                 except Exception as e:
                     logger.error(f"Failed to send failure notification to user {user_id}: {e}")
             
