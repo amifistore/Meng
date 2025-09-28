@@ -48,7 +48,7 @@ def semua_riwayat_callback(update, context):
             reply_markup=markup
         )
         return
-    # FIX: Remove admin_mode keyword, use user_id=None and set limit
+    # Ambil semua riwayat saldo (limit 50)
     all_riwayat = get_riwayat_saldo(None, limit=50)
     # Ambil semua topup dari semua user
     user_map = {}
