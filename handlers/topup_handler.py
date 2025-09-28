@@ -8,10 +8,15 @@ from telegram.ext import ConversationHandler
 from provider_qris import generate_qris
 from PIL import Image
 
+from saldo import tambah_saldo_user
+from topup import (
+    simpan_topup, update_status_topup, get_topup_by_id,
+    get_topup_pending_list
+)
+
 TOPUP_NOMINAL = 3
 
-# Multi admin support
-ADMIN_IDS = [7366367635,6738243352]  # Isi dengan list chat_id admin
+ADMIN_IDS = [7366367635, 6738243352]  # Isi dengan list chat_id admin
 
 QRIS_TEMPLATE_PATH = "qris_template.png"
 QRIS_STATIS = "00020101021126610014COM.GO-JEK.WWW01189360091434506469550210G4506469550303UMI51440014ID.CO.QRIS.WWW0215ID10243341364120303UMI5204569753033605802ID5923Amifi Store, Kmb, TLGSR6009BONDOWOSO61056827262070703A01630431E8"
@@ -164,8 +169,10 @@ def topup_nominal_step(update, context):
             log_topup_error("QRIS base64 kosong")
             update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")
 
-        # === NOTIFIKASI ADMIN + TOMBOL ===
+        # === Simpan ke database ===
         topup_id = str(uuid.uuid4())
+        simpan_topup(topup_id, update.effective_user.id, nominal, status="pending")
+        # === NOTIFIKASI ADMIN + TOMBOL ===
         notify_admin_topup(
             context,
             update.effective_user,
@@ -183,64 +190,57 @@ def topup_nominal_step(update, context):
             pass
     return ConversationHandler.END
 
-def approve_topup(topup_id, user_id, nominal):
-    # Integrasi ke DB: update status topup, tambah saldo user, log
-    # Implement with actual db logic!
-    log_admin_action("system", "approve_topup", user_id, topup_id, f"nominal={nominal}")
-
-def reject_topup(topup_id, user_id):
-    # Integrasi ke DB: update status topup, log
-    # Implement with actual db logic!
-    log_admin_action("system", "reject_topup", user_id, topup_id)
-
 def admin_topup_callback(update, context):
     query = update.callback_query
     query.answer()
     data = query.data
     admin_id = query.from_user.id
+
     if data.startswith("topup_approve|"):
         _, topup_id, user_id = data.split("|")
-        query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
-        approve_topup(topup_id, user_id, "NOMINAL_HERE")  # Integrasi nominal sesuai sistem
-        log_admin_action(admin_id, "approve_topup", user_id, topup_id)
-        try:
-            context.bot.send_message(
-                chat_id=int(user_id),
-                text=f"✅ Top Up kamu telah diapprove admin! Saldo akan diproses.",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            log_topup_error(f"ERROR kirim ke user: {e}")
+        t = get_topup_by_id(topup_id)
+        if t and t['status'] == "pending":
+            tambah_saldo_user(t['user_id'], t['nominal'], tipe="topup", keterangan=f"TOPUP {topup_id}")
+            update_status_topup(topup_id, "approved", admin_id)
+            query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
+            try:
+                context.bot.send_message(
+                    chat_id=int(user_id),
+                    text=f"✅ Top Up kamu telah diapprove admin! Saldo masuk Rp {t['nominal']:,}.",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                log_topup_error(f"ERROR kirim ke user: {e}")
+        else:
+            query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")
+
     elif data.startswith("topup_batal|"):
         _, topup_id, user_id = data.split("|")
-        query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")
-        reject_topup(topup_id, user_id)
-        log_admin_action(admin_id, "reject_topup", user_id, topup_id)
-        try:
-            context.bot.send_message(
-                chat_id=int(user_id),
-                text=f"❌ Top Up kamu dibatalkan admin. Silakan ulangi jika ingin coba lagi.",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            log_topup_error(f"ERROR kirim ke user: {e}")
+        t = get_topup_by_id(topup_id)
+        if t and t['status'] == "pending":
+            update_status_topup(topup_id, "canceled", admin_id)
+            query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")
+            try:
+                context.bot.send_message(
+                    chat_id=int(user_id),
+                    text=f"❌ Top Up kamu dibatalkan admin. Silakan ulangi jika ingin coba lagi.",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                log_topup_error(f"ERROR kirim ke user: {e}")
+        else:
+            query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")
 
-# === RIWAYAT TOPUP USER (ADMIN MENU) ===
 def admin_topup_list_callback(update, context):
     query = update.callback_query
     user = query.from_user
     query.answer()
 
-    # Pastikan hanya admin yang bisa akses
     if user.id not in ADMIN_IDS:
         query.edit_message_text("❌ Kamu bukan admin.")
         return
 
-    # Dummy: ganti dengan get_topup_pending_list() dari DB
-    topup_list = [
-        {'id': 'TUP123', 'user_id': 1111, 'nominal': 15000, 'waktu': '2025-09-28 03:55:00', 'status': 'pending'},
-        {'id': 'TUP124', 'user_id': 2222, 'nominal': 35000, 'waktu': '2025-09-28 03:56:00', 'status': 'pending'}
-    ]
+    topup_list = get_topup_pending_list()
 
     if not topup_list:
         query.edit_message_text("Tidak ada transaksi top up pending.")
@@ -257,8 +257,7 @@ def admin_topup_list_callback(update, context):
 def admin_topup_detail_callback(update, context):
     query = update.callback_query
     topup_id = query.data.split("|")[1]
-    # Dummy: ganti dengan get_topup_by_id() dari DB
-    t = {'id': topup_id, 'user_id': 1111, 'nominal': 15000, 'waktu': '2025-09-28 03:55:00', 'status': 'pending'}
+    t = get_topup_by_id(topup_id)
     if not t:
         query.edit_message_text("❌ Top up tidak ditemukan.")
         return
