@@ -3,6 +3,7 @@ from telegram.ext import CallbackContext, ConversationHandler
 from utils import get_user_saldo, tambah_user_saldo, load_riwayat
 from markup import get_menu, is_admin
 
+# State untuk ConversationHandler
 INPUT_SALDO_USERID, INPUT_SALDO_USERNAME, INPUT_SALDO_CHOOSE_USER, INPUT_SALDO_NOMINAL = range(4)
 
 def lihat_saldo_callback(update: Update, context: CallbackContext):
