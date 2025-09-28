@@ -6,7 +6,8 @@ DB_PATH = "db_bot.db"
 def get_conn():
     return sqlite3.connect(DB_PATH)
 
-def init_db():
+def init_db_topup():
+    """Initialize database table untuk topup"""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -21,6 +22,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    print("[DEBUG] Tabel topup siap")
 
 def simpan_topup(topup_id, user_id, nominal, status="pending", admin_id=None):
     conn = get_conn()
@@ -115,3 +117,13 @@ def get_all_topup_user_ids():
     rows = cur.fetchall()
     conn.close()
     return [row[0] for row in rows]
+
+# ========== COMPATIBILITY FUNCTIONS ==========
+
+def init_db():
+    """Compatibility function for old main.py"""
+    print("[COMPAT] Using init_db_topup via init_db()")
+    return init_db_topup()
+
+# Initialize database saat module di-load
+init_db_topup()
