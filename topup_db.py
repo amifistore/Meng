@@ -15,7 +15,7 @@ def setup_topup_db():
         id TEXT PRIMARY KEY,
         user_id INTEGER,
         nominal INTEGER,
-        status TEXT,
+        status TEXT,           -- 'pending', 'approved', 'canceled'
         waktu TEXT
     )""")
     conn.commit()
