@@ -1,6 +1,6 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# ========== INLINE KEYBOARDS ==========
+# ===== INLINE KEYBOARDS =====
 
 def main_menu_markup(is_admin=False):
     buttons = [
@@ -110,7 +110,7 @@ def status_menu_markup():
     ]
     return InlineKeyboardMarkup(buttons)
 
-# ========== REPLY KEYBOARDS ==========
+# ===== REPLY KEYBOARDS =====
 
 def reply_main_menu():
     buttons = [
@@ -135,7 +135,7 @@ def reply_admin_panel():
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# ========== UTILITY ==========
+# ===== UTILITY =====
 
 def custom_inline_keyboard(buttons):
     return InlineKeyboardMarkup([
