@@ -1,113 +1,58 @@
-# webhook_server.py
-# Description: Flask web server to handle incoming webhooks from the transaction API.
-
 import re
-import logging
-from flask import Flask, request, jsonify
-from telegram import ParseMode
+from saldo import tambah_saldo_user  # pastikan ini sudah benar
+from database import update_riwayat_status, get_riwayat_by_refid
 
-# Import database functions
-from database import get_riwayat_by_refid, update_riwayat_status, tambah_saldo, kurang_saldo, get_saldo
-from markup import get_menu
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+    message = request.args.get("message") or request.form.get("message") or (request.json and request.json.get("message"))
+    if not message:
+        return {"ok": False, "error": "message kosong"}, 400
 
-logger = logging.getLogger(__name__)
+    # Regex sesuai provider
+    RX = re.compile(
+        r"RC=(?P<reffid>[a-f0-9-]+)\s+TrxID=(?P<trxid>\d+)\s+(?P<produk>[A-Z0-9]+)\.(?P<tujuan>\d+)\s+(?P<status_text>[A-Za-z]+)\s*(?P<keterangan>.+?)(?:\s+Saldo[\s\S]*?)?(?:\bresult=(?P<status_code>\d+))?\s*>?$",
+        re.I
+    )
+    match = RX.search(message)
+    if not match:
+        return {"ok": False, "error": "format tidak dikenali"}, 200
 
-# REGEX to parse webhook messages
-RX = re.compile(
-    r'RC=(?P<reffid>[a-f0-9-]+)\s+TrxID=(?P<trxid>\d+)\s+'
-    r'(?P<produk>[A-Z0-9]+)\.(?P<tujuan>\d+)\s+'
-    r'(?P<status_text>[A-Za-z]+)\s*'
-    r'(?P<keterangan>.+?)'
-    r'(?:\s+Saldo[\s\S]*?)?'
-    r'(?:\bresult=(?P<status_code>\d+))?\s*>?$',
-    re.I
-)
+    reffid = match.group("reffid")
+    status_text = match.group("status_text")
+    status_code = match.group("status_code")
+    keterangan = match.group("keterangan").strip()
 
-def create_webhook_app(updater, webhook_port):
-    """Creates and configures the Flask application for the webhook."""
-    app = Flask(__name__)
+    # Normalisasi status_code
+    if status_code is not None:
+        status_code = int(status_code)
+    else:
+        if re.search(r"sukses", status_text, re.I):
+            status_code = 0
+        elif re.search(r"gagal|batal", status_text, re.I):
+            status_code = 1
 
-    @app.route('/webhook', methods=['GET', 'POST'])
-    def webhook_handler():
-        try:
-            logger.info(f"[WEBHOOK RECEIVE] Headers: {request.headers}")
-            logger.info(f"[WEBHOOK RECEIVE] Form Data: {request.form}")
-            logger.info(f"[WEBHOOK RECEIVE] Arguments: {request.args}")
+    # Ambil data transaksi dari database via reffid
+    trx = get_riwayat_by_refid(reffid)
+    if not trx:
+        # transaksi tidak ditemukan, log investigasi!
+        return {"ok": False, "error": "transaksi tidak ditemukan"}, 200
 
-            message = request.args.get('message') or request.form.get('message')
-            if not message:
-                logger.warning("[WEBHOOK] Empty message received.")
-                return jsonify({'ok': False, 'error': 'message kosong'}), 400
+    user_id = trx[2]
+    harga = trx[5]
 
-            match = RX.match(message)
-            if not match:
-                logger.warning(f"[WEBHOOK] Unrecognized format -> {message}")
-                return jsonify({'ok': False, 'error': 'format tidak dikenali'}), 200
+    # PATCH: Penanganan pesanan gagal/batal!
+    if status_code == 1 or re.search(r"gagal|batal", status_text, re.I):
+        # Refund saldo user!
+        tambah_saldo_user(user_id, harga, tipe="refund", keterangan=f"Refund transaksi gagal/batal {reffid}")
+        update_riwayat_status(reffid, "GAGAL", keterangan)
+        # Kamu bisa tambahkan notifikasi ke user di sini (via bot Telegram)
+        print(f"[WEBHOOK] Refund saldo user {user_id} sebesar {harga} untuk transaksi gagal {reffid}")
 
-            groups = match.groupdict()
-            reffid = groups.get('reffid')
-            status_text = groups.get('status_text')
-            keterangan = groups.get('keterangan', '').strip()
+    elif status_code == 0 or re.search(r"sukses", status_text, re.I):
+        update_riwayat_status(reffid, "SUKSES", keterangan)
+        # Transaksi sukses, saldo sudah dipotong saat order
 
-            logger.info(f"== Webhook received for RefID: {reffid} with status: {status_text} ==")
-            
-            riwayat = get_riwayat_by_refid(reffid)
-            if not riwayat:
-                logger.warning(f"RefID {reffid} not found in database.")
-                return jsonify({'ok': False, 'error': 'transaksi tidak ditemukan'}), 200
-            
-            user_id = riwayat[1]
-            produk_kode = riwayat[2]
-            harga = riwayat[4]
-            current_status = riwayat[6].lower()
+    else:
+        print(f"[WEBHOOK] Status tidak dikenali untuk reffid {reffid}")
 
-            if "sukses" in current_status or "gagal" in current_status or "batal" in current_status:
-                logger.info(f"RefID {reffid} already has a final status. No update needed.")
-                return jsonify({'ok': True, 'message': 'Status sudah final'}), 200
-            
-            update_riwayat_status(reffid, status_text.upper(), keterangan)
-
-            info_text, markup = get_menu(user_id)
-
-            if "sukses" in status_text.lower():
-                try:
-                    updater.bot.send_message(
-                        user_id, 
-                        f"✅ <b>TRANSAKSI SUKSES</b>\n\n"
-                        f"Produk: [{produk_kode}] dengan harga Rp {harga:,} telah berhasil dikirim.\n"
-                        f"Keterangan: {keterangan}\n\n"
-                        f"Saldo Anda sekarang: Rp {get_saldo(user_id):,}",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to send success notification to user {user_id}: {e}")
-            
-            elif "gagal" in status_text.lower() or "batal" in status_text.lower():
-                tambah_saldo(user_id, harga)
-                try:
-                    updater.bot.send_message(
-                        user_id, 
-                        f"❌ <b>TRANSAKSI GAGAL</b>\n\n"
-                        f"Transaksi untuk produk [{produk_kode}] dengan harga Rp {harga:,} GAGAL.\n"
-                        f"Keterangan: {keterangan}\n\n"
-                        f"Saldo Anda telah dikembalikan. Saldo sekarang: Rp {get_saldo(user_id):,}",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to send failure notification to user {user_id}: {e}")
-            
-            else:
-                logger.info(f"Unknown webhook status: {status_text}")
-            
-            return jsonify({'ok': True, 'message': 'Webhook processed'}), 200
-
-        except Exception as e:
-            logger.error(f"[WEBHOOK][ERROR] {e}", exc_info=True)
-            return jsonify({'ok': False, 'error': 'internal_error'}), 500
-
-    def run():
-        app.run(host='0.0.0.0', port=webhook_port)
-
-    return run
+    return {"ok": True, "parsed": match.groupdict()}, 200
