@@ -1,5 +1,5 @@
 from telegram import ParseMode
-from saldo import get_riwayat_saldo
+from saldo import get_riwayat_saldo, get_all_user_ids
 from topup import get_riwayat_topup_user
 from markup import get_menu, is_admin
 
@@ -30,10 +30,11 @@ def riwayat_callback(update, context):
             msg += "*Topup Terakhir:*\n"
             for i, tup in enumerate(topup_data[:5], 1):
                 msg += f"{i}. ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+    info_text, markup = get_menu(user.id)
     update.callback_query.edit_message_text(
         msg,
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=get_menu(user.id)
+        reply_markup=markup
     )
 
 def semua_riwayat_callback(update, context):
@@ -41,29 +42,29 @@ def semua_riwayat_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
     if not is_admin(user.id):
+        info_text, markup = get_menu(user.id)
         update.callback_query.edit_message_text(
             "❌ Akses ditolak.",
-            reply_markup=get_menu(user.id)
+            reply_markup=markup
         )
         return
-    all_riwayat = get_riwayat_saldo(None, admin_mode=True)
-    from topup import get_riwayat_topup_user
+    # FIX: Remove admin_mode keyword, use user_id=None and set limit
+    all_riwayat = get_riwayat_saldo(None, limit=50)
     # Ambil semua topup dari semua user
-    # (implementasi: loop semua user id dari saldo)
     user_map = {}
     total = 0
     if all_riwayat:
         for row in all_riwayat:
             waktu, user_id, tipe, nominal, ket = row
-            if user_id not in user_map: user_map[user_id] = {"order": [], "topup": []}
+            if user_id not in user_map:
+                user_map[user_id] = {"order": [], "topup": []}
             user_map[user_id]["order"].append((waktu, tipe, nominal, ket))
             total += nominal if nominal > 0 else 0
-    # Topup
-    from saldo import get_all_user_ids
     for uid in get_all_user_ids():
         tups = get_riwayat_topup_user(uid)
         if tups:
-            if uid not in user_map: user_map[uid] = {"order": [], "topup": []}
+            if uid not in user_map:
+                user_map[uid] = {"order": [], "topup": []}
             user_map[uid]["topup"].extend(tups)
     if not user_map:
         msg = "📄 *Semua Riwayat Kosong*\n\nBelum ada transaksi dari semua user."
@@ -78,10 +79,11 @@ def semua_riwayat_callback(update, context):
                 msg += f"   💸 Topup ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
             msg += "\n"
         msg += f"💰 *Total Transaksi: Rp {total:,}*"
+    info_text, markup = get_menu(user.id)
     update.callback_query.edit_message_text(
         msg,
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=get_menu(user.id)
+        reply_markup=markup
     )
 
 def riwayat_user(update, context):
@@ -108,8 +110,9 @@ def riwayat_user(update, context):
             msg += "*Topup Terakhir:*\n"
             for i, tup in enumerate(topup_data[:5], 1):
                 msg += f"{i}. ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+    info_text, markup = get_menu(user.id)
     update.message.reply_text(
         msg,
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=get_menu(user.id)
+        reply_markup=markup
     )
