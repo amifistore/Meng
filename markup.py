@@ -1,7 +1,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import ADMIN_IDS
 from produk import get_produk_list
-from saldo import get_saldo_user, get_riwayat_saldo
+from saldo import get_saldo_user
+from database import get_riwayat_saldo
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
