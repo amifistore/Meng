@@ -1,9 +1,8 @@
 import time
 import logging
-from telegram.constants import ParseMode
 from telegram.ext import ConversationHandler
 
-# Import fungsi dari modul lain
+# Import dari modul lain (pastikan file saldo.py dan riwayat.py sudah ada)
 from saldo import kurang_saldo_user
 from riwayat import tambah_riwayat
 
@@ -32,12 +31,12 @@ def handle_konfirmasi(update, context):
         ref_id = context.user_data.get('ref_id')
         sn = context.user_data.get('sn', '-')
         result = context.user_data.get('order_result', {})
-        msg_proc = update.callback_query if update.callback_query else update.message
+        msg_proc = update.callback_query if getattr(update, "callback_query", None) else update.message
 
         if not produk or not tujuan or not ref_id:
             msg_proc.edit_text(
                 "❌ Data order tidak lengkap. Silakan ulangi proses order.",
-                parse_mode=ParseMode.HTML
+                parse_mode="HTML"
             )
             context.user_data.clear()
             return ConversationHandler.END
@@ -52,7 +51,7 @@ def handle_konfirmasi(update, context):
                 f"❌ <b>GAGAL POTONG SALDO</b>\n\n"
                 f"Order berhasil di provider tapi gagal memotong saldo.\n"
                 f"Silakan hubungi admin untuk refund.",
-                parse_mode=ParseMode.HTML
+                parse_mode="HTML"
             )
             context.user_data.clear()
             return ConversationHandler.END
@@ -82,18 +81,21 @@ def handle_konfirmasi(update, context):
             f"🎫 SN: <code>{sn}</code>\n\n"
             f"💾 Status: <b>{result.get('message', 'Success')}</b>\n\n"
             f"Terima kasih telah berbelanja! 🛍️",
-            parse_mode=ParseMode.HTML
+            parse_mode="HTML"
         )
 
     except Exception as e:
         logger.error(f"Error handle_konfirmasi {ref_id if 'ref_id' in locals() else ''}: {str(e)}")
-        msg_proc.edit_text(
-            f"⚠️ <b>ORDER BERHASIL TAPI ADA KENDALA SYSTEM</b>\n\n"
-            f"Order di provider sukses tapi ada kendala system.\n"
-            f"Ref ID: <code>{ref_id if 'ref_id' in locals() else '-'}</code>\n"
-            f"Silakan hubungi admin dengan Ref ID di atas.",
-            parse_mode=ParseMode.HTML
-        )
+        try:
+            msg_proc.edit_text(
+                f"⚠️ <b>ORDER BERHASIL TAPI ADA KENDALA SYSTEM</b>\n\n"
+                f"Order di provider sukses tapi ada kendala system.\n"
+                f"Ref ID: <code>{ref_id if 'ref_id' in locals() else '-'}</code>\n"
+                f"Silakan hubungi admin dengan Ref ID di atas.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
     finally:
         context.user_data.clear()
         return ConversationHandler.END
@@ -108,7 +110,7 @@ def handle_successful_order(result, msg_proc, user, produk, tujuan, ref_id, sn, 
                 f"❌ <b>GAGAL POTONG SALDO</b>\n\n"
                 f"Order berhasil di provider tapi gagal memotong saldo.\n"
                 f"Silakan hubungi admin untuk refund.",
-                parse_mode=ParseMode.HTML
+                parse_mode="HTML"
             )
             context.user_data.clear()
             return ConversationHandler.END
@@ -136,17 +138,20 @@ def handle_successful_order(result, msg_proc, user, produk, tujuan, ref_id, sn, 
             f"🎫 SN: <code>{sn}</code>\n\n"
             f"💾 Status: <b>{result.get('message', 'Success')}</b>\n\n"
             f"Terima kasih telah berbelanja! 🛍️",
-            parse_mode=ParseMode.HTML
+            parse_mode="HTML"
         )
     except Exception as e:
         logger.error(f"Error handling successful order {ref_id}: {str(e)}")
-        msg_proc.edit_text(
-            f"⚠️ <b>ORDER BERHASIL TAPI ADA KENDALA SYSTEM</b>\n\n"
-            f"Order di provider sukses tapi ada kendala system.\n"
-            f"Ref ID: <code>{ref_id}</code>\n"
-            f"Silakan hubungi admin dengan Ref ID di atas.",
-            parse_mode=ParseMode.HTML
-        )
+        try:
+            msg_proc.edit_text(
+                f"⚠️ <b>ORDER BERHASIL TAPI ADA KENDALA SYSTEM</b>\n\n"
+                f"Order di provider sukses tapi ada kendala system.\n"
+                f"Ref ID: <code>{ref_id}</code>\n"
+                f"Silakan hubungi admin dengan Ref ID di atas.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
     finally:
         context.user_data.clear()
         return ConversationHandler.END
