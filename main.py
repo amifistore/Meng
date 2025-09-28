@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import sys
 import time
 import logging
@@ -22,30 +21,28 @@ def main():
     try:
         from config import TOKEN
         print(f"✅ Token loaded: {TOKEN[:10]}...")
-        
         from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
-        
-        updater = Updater(TOKEN, use_context=True)
-        dp = updater.dispatcher
-        print("✅ Updater created")
-        
-        # Import handlers
+
+        # === Import all handlers and states from handlers/ ===
         from handlers.main_menu_handler import start, cancel, main_menu_callback, CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI
         from handlers.produk_pilih_handler import produk_pilih_callback
         from handlers.order_handler import handle_input_tujuan, handle_konfirmasi
-        from handlers.topup_handler import (
-            topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback
-        )
+        from handlers.topup_handler import topup_callback, topup_nominal_step, TOPUP_NOMINAL, admin_topup_callback
         from handlers.riwayat_handler import riwayat_callback
         from handlers.stock_handler import stock_akrab_callback
         from handlers.saldo_handler import lihat_saldo_callback, tambah_saldo_callback
         from handlers.admin_produk_handler import admin_edit_produk_step
         from handlers.produk_daftar_handler import lihat_produk_callback
         from handlers.status_handler import cek_status_callback, input_refid_step, INPUT_REFID
-        # Tambahkan handler lain sesuai kebutuhan menu
+        # Tambahkan import lain jika ada file handler baru
+        
+        updater = Updater(TOKEN, use_context=True)
+        dp = updater.dispatcher
+        print("✅ Updater created")
         
         print("🔄 Setting up handlers...")
         
+        # === Order Conversation ===
         order_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(produk_pilih_callback, pattern='^produk_static\\|')],
             states={
@@ -59,6 +56,7 @@ def main():
         dp.add_handler(order_conv_handler)
         print("✅ Order conversation handler added")
         
+        # === Top Up Conversation ===
         topup_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(topup_callback, pattern='^topup$')],
             states={
@@ -71,11 +69,12 @@ def main():
         dp.add_handler(topup_conv_handler)
         print("✅ Top Up conversation handler added")
         
-        # Handler untuk notifikasi admin approve/batal topup
+        # Notifikasi admin approve/batal topup
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_approve|'))
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern='^topup_batal|'))
         print("✅ Top Up admin approval handler added")
         
+        # === Status Conversation ===
         status_conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(cek_status_callback, pattern='^cek_status$')],
             states={
@@ -88,6 +87,7 @@ def main():
         dp.add_handler(status_conv_handler)
         print("✅ Status conversation handler added")
         
+        # === CallbackQuery Handlers for Menu ===
         dp.add_handler(CallbackQueryHandler(start, pattern='^start$'))
         dp.add_handler(CallbackQueryHandler(lihat_produk_callback, pattern='^lihat_produk$'))
         dp.add_handler(CallbackQueryHandler(riwayat_callback, pattern='^riwayat$'))
@@ -97,6 +97,7 @@ def main():
         dp.add_handler(CallbackQueryHandler(admin_edit_produk_step, pattern='^manajemen_produk$'))
         dp.add_handler(CallbackQueryHandler(main_menu_callback))
         
+        # === Command Handlers ===
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
