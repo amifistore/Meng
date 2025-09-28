@@ -7,6 +7,18 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "botdb.sqlite3")
 def get_conn():
     return sqlite3.connect(DB_PATH)
 
+def ensure_waktu_column():
+    """Pastikan kolom 'waktu' ada di tabel topup. Jika belum, tambahkan."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(topup)")
+    columns = [row[1] for row in cur.fetchall()]
+    if "waktu" not in columns:
+        cur.execute("ALTER TABLE topup ADD COLUMN waktu TEXT;")
+        print("✅ Kolom 'waktu' berhasil ditambahkan ke tabel topup.")
+    conn.commit()
+    conn.close()
+
 def setup_topup_db():
     conn = get_conn()
     cur = conn.cursor()
@@ -21,6 +33,7 @@ def setup_topup_db():
     )""")
     conn.commit()
     conn.close()
+    ensure_waktu_column()
 
 def simpan_topup(topup_id, user_id, nominal, status="pending", admin_id=None):
     conn = get_conn()
