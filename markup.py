@@ -32,7 +32,6 @@ def produk_list_markup(produk_list):
     buttons.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
     return InlineKeyboardMarkup(buttons)
 
-# Alias agar tidak error import produk_inline_keyboard
 def produk_inline_keyboard(produk_list):
     return produk_list_markup(produk_list)
 
@@ -77,6 +76,9 @@ def edit_produk_markup(produk_id):
         [InlineKeyboardButton("⬅️ Kembali", callback_data="manajemen_produk")]
     ]
     return InlineKeyboardMarkup(buttons)
+
+def admin_edit_produk_keyboard(produk_id):
+    return edit_produk_markup(produk_id)
 
 def riwayat_menu_markup():
     buttons = [
@@ -130,26 +132,12 @@ def reply_admin_panel():
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def custom_inline_keyboard(buttons):
-    """
-    buttons: list of list, e.g.
-    [
-        [("Tombol 1", "cb_data_1"), ("Tombol 2", "cb_data_2")],
-        [("Tombol 3", "cb_data_3")]
-    ]
-    """
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(text, cbdata) for text, cbdata in row]
         for row in buttons
     ])
 
 def custom_reply_keyboard(buttons):
-    """
-    buttons: list of list, e.g.
-    [
-        ["Tombol 1", "Tombol 2"],
-        ["Tombol 3"]
-    ]
-    """
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def get_menu(is_admin=False):
