@@ -1,175 +1,90 @@
-# riwayat.py - VERSI LENGKAP & FIX
 import sqlite3
-import logging
 
-logger = logging.getLogger(__name__)
 DB_PATH = "db_bot.db"
 
 def init_db_riwayat():
-    """Initialize database table untuk riwayat order"""
+    """Inisialisasi tabel riwayat_order dan riwayat jika belum ada"""
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        
-        # Tabel riwayat_order (baru)
-        cur.execute('''
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS riwayat_order (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                ref_id TEXT NOT NULL UNIQUE,
-                produk TEXT NOT NULL,
-                harga INTEGER NOT NULL,
-                tujuan TEXT NOT NULL,
-                status TEXT NOT NULL,
+                user_id INTEGER,
+                ref_id TEXT,
+                kode TEXT,
+                tujuan TEXT,
+                harga INTEGER,
+                tanggal TEXT,
+                status TEXT,
                 sn TEXT,
                 keterangan TEXT,
-                raw_response TEXT,
-                tanggal TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                raw_response TEXT
             )
-        ''')
-        
-        # Tabel riwayat (compatibility untuk kode lama)
-        cur.execute('''
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS riwayat (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                ref_id TEXT NOT NULL UNIQUE,
-                produk_kode TEXT NOT NULL,
-                tujuan TEXT NOT NULL,
-                harga INTEGER NOT NULL,
-                tanggal TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status TEXT NOT NULL,
-                keterangan TEXT
+                user_id INTEGER,
+                ref_id TEXT,
+                kode TEXT,
+                tujuan TEXT,
+                harga INTEGER,
+                tanggal TEXT,
+                status TEXT
             )
-        ''')
-        
+        """)
         conn.commit()
         conn.close()
-        logger.info("✅ Tabel riwayat_order & riwayat siap")
-        return True
-        
+        print("✅ Tabel riwayat siap")
     except Exception as e:
-        logger.error(f"❌ Gagal init database riwayat: {e}")
-        return False
+        print(f"Error init_db_riwayat: {e}")
 
 def tambah_riwayat(user_id, transaksi):
     """
-    Tambahkan riwayat transaksi ke database
+    Menambahkan riwayat transaksi ke tabel riwayat_order dan riwayat.
+    transaksi = dict dengan key:
+      ref_id, kode, tujuan, harga, tanggal, status, sn, keterangan, raw_response
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        
-        # Validasi field required
-        required_fields = ['ref_id', 'kode', 'tujuan', 'harga', 'status']
-        for field in required_fields:
-            if field not in transaksi:
-                logger.error(f"❌ Field {field} tidak ada di transaksi")
-                return False
-        
-        # Insert ke riwayat_order
-        cur.execute('''
-            INSERT INTO riwayat_order 
-            (user_id, ref_id, produk, harga, tujuan, status, sn, keterangan, raw_response)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            user_id,
-            transaksi['ref_id'],
-            transaksi['kode'],
-            transaksi['harga'],
-            transaksi['tujuan'],
-            transaksi['status'],
-            transaksi.get('sn', ''),
-            transaksi.get('keterangan', ''),
-            transaksi.get('raw_response', '')
-        ))
-        
-        # Juga insert ke riwayat (compatibility)
-        cur.execute('''
-            INSERT OR IGNORE INTO riwayat 
-            (user_id, ref_id, produk_kode, tujuan, harga, status, keterangan)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            user_id,
-            transaksi['ref_id'],
-            transaksi['kode'],
-            transaksi['tujuan'],
-            transaksi['harga'],
-            transaksi['status'],
-            transaksi.get('keterangan', '')
-        ))
-        
+
+        # Simpan ke riwayat_order
+        cur.execute(
+            "INSERT INTO riwayat_order (user_id, ref_id, kode, tujuan, harga, tanggal, status, sn, keterangan, raw_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                transaksi.get("ref_id", ""),
+                transaksi.get("kode", ""),
+                transaksi.get("tujuan", ""),
+                transaksi.get("harga", 0),
+                transaksi.get("tanggal", ""),
+                transaksi.get("status", ""),
+                transaksi.get("sn", ""),
+                transaksi.get("keterangan", ""),
+                transaksi.get("raw_response", "")
+            )
+        )
         conn.commit()
+
+        # Simpan ke tabel riwayat
+        cur.execute(
+            "INSERT INTO riwayat (user_id, ref_id, kode, tujuan, harga, tanggal, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                transaksi.get("ref_id", ""),
+                transaksi.get("kode", ""),
+                transaksi.get("tujuan", ""),
+                transaksi.get("harga", 0),
+                transaksi.get("tanggal", ""),
+                transaksi.get("status", "")
+            )
+        )
+        conn.commit()
+
         conn.close()
-        logger.info(f"✅ Riwayat disimpan: {transaksi['ref_id']}")
         return True
-        
-    except sqlite3.IntegrityError:
-        logger.error(f"❌ Ref ID {transaksi['ref_id']} sudah ada")
+    except Exception as e:
+        print(f"Error tambah_riwayat: {e}")
         return False
-    except Exception as e:
-        logger.error(f"❌ Gagal simpan riwayat: {e}")
-        return False
-
-def get_riwayat_user(user_id, limit=10):
-    """Ambil riwayat order user tertentu"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('''
-            SELECT ref_id, produk, harga, tujuan, status, tanggal, sn, keterangan
-            FROM riwayat_order 
-            WHERE user_id = ? 
-            ORDER BY id DESC 
-            LIMIT ?
-        ''', (user_id, limit))
-        rows = cur.fetchall()
-        conn.close()
-        return rows
-    except Exception as e:
-        logger.error(f"❌ Gagal get riwayat user {user_id}: {e}")
-        return []
-
-def cari_riwayat_order(user_id=None, ref_id=None, produk=None, status=None, tanggal=None, limit=20):
-    """Cari riwayat order berdasarkan filter"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        query = "SELECT ref_id, produk, harga, tujuan, status, tanggal, sn FROM riwayat_order WHERE 1=1"
-        params = []
-        
-        if user_id:
-            query += " AND user_id=?"
-            params.append(user_id)
-        if ref_id:
-            query += " AND ref_id LIKE ?"
-            params.append(f"%{ref_id}%")
-        if produk:
-            query += " AND produk LIKE ?"
-            params.append(f"%{produk}%")
-        if status:
-            query += " AND status=?"
-            params.append(status)
-        if tanggal:
-            query += " AND tanggal LIKE ?"
-            params.append(f"%{tanggal}%")
-            
-        query += " ORDER BY id DESC LIMIT ?"
-        params.append(limit)
-        
-        cur.execute(query, params)
-        rows = cur.fetchall()
-        conn.close()
-        return rows
-    except Exception as e:
-        logger.error(f"❌ Gagal cari riwayat: {e}")
-        return []
-
-# ========== COMPATIBILITY FUNCTIONS ==========
-
-def init_db():
-    """Compatibility function for old code"""
-    return init_db_riwayat()
-
-# Initialize database saat module di-load
-init_db_riwayat()
