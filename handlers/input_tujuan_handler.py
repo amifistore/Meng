@@ -10,6 +10,11 @@ KONFIRMASI = 2
 def handle_input_tujuan(update, context):
     user = update.message.from_user
     text = update.message.text.strip()
+
+    # DEBUG: print agar bisa cek di terminal
+    print("DEBUG: handle_input_tujuan terpanggil")
+    print(f"DEBUG: produk dalam user_data = {context.user_data.get('produk')}")
+
     if text == '/batal':
         context.user_data.clear()
         update.message.reply_text("❌ Order dibatalkan.", reply_markup=reply_main_menu(user.id))
@@ -38,16 +43,7 @@ def handle_input_tujuan(update, context):
         )
         return ConversationHandler.END
 
-    # PATCH: Hilangkan cek kuota produk, agar order tetap bisa lanjut walau stok 0
-    # kuota = produk.get('kuota', 0)
-    # if kuota <= 0:
-    #     update.message.reply_text(
-    #         f"❌ Produk <b>{produk['nama']}</b> kuotanya sudah habis!\n"
-    #         "Silakan pilih produk lain.",
-    #         parse_mode=ParseMode.HTML,
-    #         reply_markup=reply_main_menu(user.id)
-    #     )
-    #     return ConversationHandler.END
+    # PATCH: Kuota produk tidak dicek agar order tetap bisa lanjut walau stok 0
 
     context.user_data["tujuan"] = text
     context.user_data["ref_id"] = str(uuid.uuid4())
