@@ -22,3 +22,12 @@ def reply_main_menu():
         [KeyboardButton("❓ Bantuan")],
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+def get_menu():
+    buttons = [
+        [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
+        [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
+        [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
+        [KeyboardButton("❓ Bantuan")],
+    ]
+    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
