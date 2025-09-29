@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CallbackContext, ConversationHandler
 from saldo import get_saldo_user, tambah_saldo_user, get_riwayat_saldo, get_all_user_ids
-from markup import get_menu
+from markup import reply_main_menu
 from config import ADMIN_IDS
 
 # State untuk ConversationHandler
@@ -15,7 +15,7 @@ def lihat_saldo_callback(update: Update, context: CallbackContext):
     update.callback_query.answer()
     saldo = get_saldo_user(user.id)
     msg = f"💰 Saldo Anda saat ini: <b>Rp {saldo:,}</b>"
-    _, markup = get_menu(is_admin(user.id))
+    markup = reply_main_menu(is_admin(user.id))
     update.callback_query.edit_message_text(
         msg,
         parse_mode="HTML",
@@ -27,7 +27,7 @@ def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
     user = update.callback_query.from_user
     update.callback_query.answer()
     if not is_admin(user.id):
-        _, markup = get_menu(is_admin(user.id))
+        markup = reply_main_menu(is_admin(user.id))
         update.callback_query.edit_message_text(
             "❌ Akses hanya untuk admin.",
             parse_mode="HTML",
@@ -42,7 +42,7 @@ def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
     for user_id in riwayat_user.keys():
         keyboard.append([InlineKeyboardButton(f"UserID: {user_id}", callback_data=f"chooseuser|{user_id}")])
     if not keyboard:
-        _, markup = get_menu(is_admin(user.id))
+        markup = reply_main_menu(is_admin(user.id))
         update.callback_query.edit_message_text(
             "❌ Tidak ada user yang pernah bertransaksi.",
             parse_mode="HTML",
