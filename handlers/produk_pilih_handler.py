@@ -12,9 +12,15 @@ def produk_pilih_callback(update, context):
     data = query.data
     query.answer()
 
+    # DEBUG
+    print("DEBUG: produk_pilih_callback terpanggil")
+    print(f"DEBUG: Callback data={data}")
+
     if data.startswith("produk_static|"):
         idx = int(data.split("|")[1])
         produk_list = get_produk_list()
+        print(f"DEBUG: produk_list len={len(produk_list)}, idx={idx}")
+
         if idx < 0 or idx >= len(produk_list):
             query.edit_message_text("❌ Produk tidak valid.", reply_markup=reply_main_menu(user.id))
             return ConversationHandler.END
@@ -22,16 +28,7 @@ def produk_pilih_callback(update, context):
         p = produk_list[idx]
         context.user_data["produk"] = p
 
-        # PATCH: Hilangkan validasi kuota produk, order tetap bisa lanjut walau stok 0
-        # kuota = p.get('kuota', 0)
-        # if kuota <= 0:
-        #     query.edit_message_text(
-        #         f"❌ Produk <b>{p['nama']}</b> kuotanya sudah habis!\n"
-        #         "Silakan pilih produk lain.",
-        #         parse_mode=ParseMode.HTML,
-        #         reply_markup=reply_main_menu(user.id)
-        #     )
-        #     return ConversationHandler.END
+        # PATCH: Validasi kuota dihapus, order tetap lanjut walau stok 0
 
         saldo = get_saldo_user(user.id)
         if saldo < p['harga']:
@@ -60,4 +57,4 @@ def produk_pilih_callback(update, context):
 
     else:
         query.edit_message_text("❌ Callback tidak dikenali.", reply_markup=reply_main_menu(user.id))
-        return ConversationHandler.END
+        return ConversationHandler.END    
