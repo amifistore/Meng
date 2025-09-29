@@ -27,5 +27,18 @@ def get_menu(is_admin=False):
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# Alias agar handler lama tetap berjalan - TAMBAHKAN INI
+# Alias agar handler lama tetap berjalan
 reply_main_menu = get_menu
+
+# PRODUK INLINE KEYBOARD - TAMBAHKAN INI!
+def produk_inline_keyboard(produk_list):
+    """
+    Generate InlineKeyboardMarkup untuk daftar produk.
+    produk_list: list of dict, masing-masing dict minimal punya 'nama', 'kode'
+    """
+    keyboard = [
+        [InlineKeyboardButton(p['nama'], callback_data=f"produk|{p['kode']}")]
+        for p in produk_list
+    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
+    return InlineKeyboardMarkup(keyboard)
