@@ -1,22 +1,6 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import ReplyKeyboardMarkup, KeyboardButton
 
-# Inline keyboard menu utama (tombol di pesan bot)
-def main_menu_markup(is_admin=False):
-    buttons = [
-        [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
-        [InlineKeyboardButton("💳 Top Up Saldo", callback_data="topup")],
-        [InlineKeyboardButton("📦 Cek Stok", callback_data="stock_akrab")],
-        [InlineKeyboardButton("📋 Riwayat Transaksi", callback_data="riwayat")],
-        [InlineKeyboardButton("💰 Lihat Saldo", callback_data="lihat_saldo")],
-        [InlineKeyboardButton("🔍 Cek Status", callback_data="cek_status")],
-        [InlineKeyboardButton("❓ Bantuan", callback_data="help")]
-    ]
-    if is_admin:
-        buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
-    return InlineKeyboardMarkup(buttons)
-
-# Reply keyboard menu utama (tombol di bawah chat, user/admin)
-def get_menu(is_admin=False):
+def reply_main_menu(is_admin=False):
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
         [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
@@ -26,19 +10,3 @@ def get_menu(is_admin=False):
     if is_admin:
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
-
-# Alias agar handler lama tetap berjalan
-reply_main_menu = get_menu
-
-# PRODUK INLINE KEYBOARD
-def produk_inline_keyboard(produk_list):
-    """
-    Generate InlineKeyboardMarkup untuk daftar produk.
-    produk_list: list of dict, masing-masing dict minimal punya 'nama', 'kode'
-    """
-    keyboard = [
-        [InlineKeyboardButton(p['nama'], callback_data=f"produk|{p['kode']}")]
-        for p in produk_list
-    ]
-    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
-    return InlineKeyboardMarkup(keyboard)
