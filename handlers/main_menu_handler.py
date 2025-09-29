@@ -158,7 +158,6 @@ def main_menu_callback(update, context):
         query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=keyboard)
         return
     else:
-        # Fallback ke menu utama
         markup = main_menu_markup(admin)
         query.edit_message_text(
             "🏠 <b>Menu Utama</b>\nSilakan pilih menu berikut:",
