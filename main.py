@@ -17,7 +17,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import markup.py
 from markup import main_menu_markup, reply_main_menu
 
 def log_error(error_text):
@@ -42,7 +41,6 @@ def init_all_databases():
     """Inisialisasi semua database dengan struktur yang benar"""
     print("🔄 Inisialisasi semua database...")
     try:
-        # Hapus cache Python
         for root, dirs, files in os.walk("."):
             for file in files:
                 if file.endswith(".pyc"):
@@ -51,12 +49,10 @@ def init_all_databases():
                 if dir == "__pycache__":
                     shutil.rmtree(os.path.join(root, dir), ignore_errors=True)
 
-        # Import modul untuk trigger auto-init
         import saldo
         import riwayat  
         import topup
 
-        # Paksa re-inisialisasi database
         saldo.init_db_saldo()
         riwayat.init_db_riwayat()
         topup.init_db_topup()
@@ -72,14 +68,9 @@ def setup_test_data():
     """Setup data testing"""
     try:
         from saldo import tambah_saldo_user, get_saldo_user
-        
-        # Setup test user (ganti dengan user ID Telegram Anda)
         TEST_USER_ID = 123456789  # <- GANTI INI!
-        
-        # Cek apakah user sudah ada
         saldo_user = get_saldo_user(TEST_USER_ID)
         if saldo_user == 0:
-            # Tambah saldo untuk testing
             success = tambah_saldo_user(TEST_USER_ID, 100000, "initial", "Saldo awal testing")
             if success:
                 print(f"✅ Saldo 100.000 ditambahkan ke user {TEST_USER_ID}")
@@ -87,7 +78,6 @@ def setup_test_data():
                 print(f"❌ Gagal tambah saldo ke user {TEST_USER_ID}")
         else:
             print(f"✅ User {TEST_USER_ID} sudah ada dengan saldo: {saldo_user:,}")
-            
     except Exception as e:
         print(f"⚠️ Setup test data: {e}")
 
@@ -235,7 +225,6 @@ def main():
         # ==================== CONVERSATION HANDLERS ====================
         print("🔄 Setup conversation handlers...")
 
-        # === Order Produk Conversation ===
         order_conv_handler = ConversationHandler(
             entry_points=[
                 CallbackQueryHandler(produk_pilih_callback, pattern='^beli_produk$'),
@@ -265,7 +254,6 @@ def main():
         dp.add_handler(order_conv_handler)
         print("✅ Order conversation handler setup")
 
-        # === Top Up Conversation (jika tersedia) ===
         if TOPUP_AVAILABLE:
             topup_conv_handler = ConversationHandler(
                 entry_points=[
@@ -288,7 +276,6 @@ def main():
             dp.add_handler(topup_conv_handler)
             print("✅ Topup conversation handler setup")
 
-        # === Status Conversation ===
         status_conv_handler = ConversationHandler(
             entry_points=[
                 CallbackQueryHandler(cek_status_callback, pattern='^cek_status$'),
@@ -310,7 +297,6 @@ def main():
         dp.add_handler(status_conv_handler)
         print("✅ Status conversation handler setup")
 
-        # === Admin Edit Produk Conversation (jika tersedia) ===
         if ADMIN_AVAILABLE:
             admin_edit_conv_handler = ConversationHandler(
                 entry_points=[
@@ -383,7 +369,6 @@ def main():
                 logger.error(error_msg)
                 log_error(error_msg)
                 if update and update.effective_message:
-                    # Gunakan markup untuk error/fallback
                     update.effective_message.reply_text(
                         "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.",
                         reply_markup=main_menu_markup(is_admin=(update.effective_user and update.effective_user.id in ADMIN_IDS))
