@@ -38,16 +38,16 @@ def handle_input_tujuan(update, context):
         )
         return ConversationHandler.END
 
-    # Cek kuota produk sebelum lanjut (jika ingin double validasi)
-    kuota = produk.get('kuota', 0)
-    if kuota <= 0:
-        update.message.reply_text(
-            f"❌ Produk <b>{produk['nama']}</b> kuotanya sudah habis!\n"
-            "Silakan pilih produk lain.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=reply_main_menu(user.id)
-        )
-        return ConversationHandler.END
+    # PATCH: Hilangkan cek kuota produk, agar order tetap bisa lanjut walau stok 0
+    # kuota = produk.get('kuota', 0)
+    # if kuota <= 0:
+    #     update.message.reply_text(
+    #         f"❌ Produk <b>{produk['nama']}</b> kuotanya sudah habis!\n"
+    #         "Silakan pilih produk lain.",
+    #         parse_mode=ParseMode.HTML,
+    #         reply_markup=reply_main_menu(user.id)
+    #     )
+    #     return ConversationHandler.END
 
     context.user_data["tujuan"] = text
     context.user_data["ref_id"] = str(uuid.uuid4())
@@ -61,7 +61,7 @@ def handle_input_tujuan(update, context):
         f"📦 Produk: <b>{produk['nama']}</b>\n"
         f"💰 Harga: <b>Rp {produk['harga']:,}</b>\n"
         f"📱 Tujuan: <b>{text}</b>\n"
-        f"Stok: <b>{kuota}</b>\n\n"
+        f"Stok: <b>{produk.get('kuota', 0)}</b>\n\n"
         f"Klik <b>Konfirmasi</b> untuk melanjutkan atau <b>Batal</b> untuk membatalkan.",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(keyboard)
