@@ -9,6 +9,10 @@ import time
 KONFIRMASI = 2
 
 def handle_konfirmasi(update, context):
+    # DEBUG
+    print("DEBUG: handle_konfirmasi terpanggil")
+    print(f"DEBUG: context.user_data = {context.user_data}")
+
     if update.callback_query:
         query = update.callback_query
         user = query.from_user
@@ -27,7 +31,9 @@ def handle_konfirmasi(update, context):
                 return ConversationHandler.END
             msg_proc = query.edit_message_text("🔄 Memproses order... Silakan tunggu.")
             try:
+                print(f"DEBUG: create_trx({produk['kode']}, {tujuan}, {ref_id})")
                 result = create_trx(produk['kode'], tujuan, ref_id)
+                print(f"DEBUG: create_trx result = {result}")
                 status = str(result.get('status', '')).lower()
                 message = str(result.get('message', '')).lower()
                 status_code = result.get('status_code', None)
@@ -77,6 +83,7 @@ def handle_konfirmasi(update, context):
                     f"Silakan hubungi admin.",
                     parse_mode=ParseMode.HTML
                 )
+                print(f"DEBUG: Exception in handle_konfirmasi: {e}")
             finally:
                 context.user_data.clear()
                 return ConversationHandler.END
@@ -99,7 +106,9 @@ def handle_konfirmasi(update, context):
                 return ConversationHandler.END
             processing_msg = update.message.reply_text("🔄 Memproses order... Silakan tunggu.")
             try:
+                print(f"DEBUG: create_trx({produk['kode']}, {tujuan}, {ref_id})")
                 result = create_trx(produk['kode'], tujuan, ref_id)
+                print(f"DEBUG: create_trx result = {result}")
                 status = str(result.get('status', '')).lower()
                 message = str(result.get('message', '')).lower()
                 status_code = result.get('status_code', None)
@@ -149,6 +158,7 @@ def handle_konfirmasi(update, context):
                     f"Silakan hubungi admin.",
                     parse_mode=ParseMode.HTML
                 )
+                print(f"DEBUG: Exception in handle_konfirmasi: {e}")
             finally:
                 context.user_data.clear()
                 return ConversationHandler.END
