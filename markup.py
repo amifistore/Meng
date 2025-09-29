@@ -18,3 +18,20 @@ def produk_inline_keyboard(produk_list):
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
+
+def admin_panel_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("📦 Admin Produk", callback_data="admin_produk")],
+        [InlineKeyboardButton("👤 Admin User", callback_data="admin_user")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def admin_edit_produk_keyboard(kode):
+    keyboard = [
+        [InlineKeyboardButton("Edit Harga", callback_data=f"edit_harga|{kode}")],
+        [InlineKeyboardButton("Edit Deskripsi", callback_data=f"edit_deskripsi|{kode}")],
+        [InlineKeyboardButton("Reset Custom", callback_data=f"resetcustom|{kode}")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data=f"back_admin")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
