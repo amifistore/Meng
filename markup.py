@@ -10,7 +10,3 @@ def reply_main_menu(is_admin=False):
     if is_admin:
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
-
-# Dummy agar import error tidak muncul
-def main_menu_markup(is_admin=False):
-    return reply_main_menu(is_admin)
