@@ -1,6 +1,6 @@
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
-from markup import main_menu_markup, get_menu
+from markup import main_menu_markup, get_menu, produk_inline_keyboard
 from produk import get_produk_list, get_produk_by_kode, reset_produk_custom
 from provider import cek_stock_akrab
 from utils import format_stock_akrab
@@ -18,12 +18,8 @@ def is_admin(user_id):
     """Cek apakah user adalah admin"""
     return user_id in ADMIN_IDS
 
-# TAMBAHKAN FUNGSI CANCEL YANG DIPERLUKAN
 def cancel(update, context):
     """Batalkan operasi dan kembali ke menu utama"""
-    from telegram import Update
-    from telegram.ext import CallbackContext
-    
     user = update.effective_user
     context.user_data.clear()
     markup = get_menu(is_admin(user.id))
@@ -40,7 +36,6 @@ def cancel(update, context):
             "❌ Operasi dibatalkan.",
             reply_markup=markup
         )
-    
     return ConversationHandler.END
 
 def start(update, context):
@@ -57,7 +52,7 @@ def main_menu_callback(update, context):
     user = query.from_user
     data = query.data
 
-    print(f"🔍 [MAIN_MENU] Callback received: '{data}'")
+    logger.info(f"🔍 [MAIN_MENU] Callback received: '{data}'")
 
     try:
         query.answer()
@@ -307,7 +302,6 @@ def main_menu_callback(update, context):
     )
     return ConversationHandler.END
 
-# TAMBAHKAN FUNGSI LAIN YANG DIPERLUKAN
 def handle_choosing_produk(update, context):
     """Handle state CHOOSING_PRODUK"""
     query = update.callback_query
