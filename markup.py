@@ -35,15 +35,18 @@ def get_menu():
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def produk_inline_keyboard(produk_list):
-    """
-    Membuat inline keyboard untuk daftar produk.
-    produk_list: list of dict {id, nama}
-    """
     buttons = []
     for produk in produk_list:
-        # Kamu bisa kembangkan callback_data sesuai kebutuhan handler
         buttons.append([InlineKeyboardButton(
             produk.get('nama', str(produk.get('id', 'Produk'))),
             callback_data=f"produk|{produk.get('id')}"
         )])
+    return InlineKeyboardMarkup(buttons)
+
+def admin_edit_produk_keyboard(produk_id):
+    buttons = [
+        [InlineKeyboardButton("✏️ Edit Harga", callback_data=f"editharga|{produk_id}")],
+        [InlineKeyboardButton("✏️ Edit Deskripsi", callback_data=f"editdeskripsi|{produk_id}")],
+        [InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")]
+    ]
     return InlineKeyboardMarkup(buttons)
