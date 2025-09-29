@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu_markup(is_admin=False):
     buttons = [
