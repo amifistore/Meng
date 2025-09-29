@@ -1,7 +1,7 @@
 from telegram import ParseMode
 from saldo import get_riwayat_saldo, get_all_user_ids
 from topup import get_riwayat_topup_user
-from markup import get_menu
+from markup import reply_main_menu
 from config import ADMIN_IDS
 
 def is_admin(user_id):
@@ -36,7 +36,7 @@ def riwayat_callback(update, context):
                 status = tup.get("status", "")
                 tanggal = tup.get("tanggal", "")
                 msg += f"{i}. ID: `{tup.get('id')}` | Rp {topup_nominal:,} | Status: {status} | {tanggal}\n"
-    _, markup = get_menu(is_admin(user.id))
+    markup = reply_main_menu(is_admin=is_admin(user.id))
     update.callback_query.edit_message_text(
         msg,
         parse_mode=ParseMode.MARKDOWN,
@@ -47,7 +47,7 @@ def semua_riwayat_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
     if not is_admin(user.id):
-        _, markup = get_menu(is_admin(user.id))
+        markup = reply_main_menu(is_admin=is_admin(user.id))
         update.callback_query.edit_message_text(
             "❌ Akses ditolak.",
             reply_markup=markup
@@ -85,9 +85,9 @@ def semua_riwayat_callback(update, context):
                 msg += f"   💸 Topup ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
             msg += "\n"
         msg += f"💰 *Total Transaksi: Rp {total:,}*"
-    _, markup = get_menu(is_admin(user.id))
+    markup = reply_main_menu(is_admin=is_admin(user.id))
     update.callback_query.edit_message_text(
         msg,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=markup
-    )
+            )
