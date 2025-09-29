@@ -1,6 +1,6 @@
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# Inline keyboard menu utama (untuk callback handler)
+# Inline keyboard menu utama (tombol di pesan bot)
 def main_menu_markup(is_admin=False):
     buttons = [
         [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
@@ -15,7 +15,7 @@ def main_menu_markup(is_admin=False):
         buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
     return InlineKeyboardMarkup(buttons)
 
-# Reply keyboard menu utama (tombol di bawah chat)
+# Reply keyboard menu utama (tombol di bawah chat, user/admin)
 def get_menu(is_admin=False):
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
@@ -26,3 +26,6 @@ def get_menu(is_admin=False):
     if is_admin:
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+# Alias agar handler lama tetap berjalan - TAMBAHKAN INI
+reply_main_menu = get_menu
