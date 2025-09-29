@@ -1,6 +1,6 @@
 import logging
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
-from markup import get_menu, reply_main_menu, main_menu_markup
+from markup import reply_main_menu, main_menu_markup
 from config import ADMIN_IDS
 
 def is_admin(user_id):
@@ -17,7 +17,7 @@ def start(update, context):
 def cancel(update, context):
     user = update.effective_user
     context.user_data.clear()
-    if update.callback_query:
+    if getattr(update, "callback_query", None):
         query = update.callback_query
         query.answer()
         query.edit_message_text(
@@ -35,25 +35,26 @@ def reply_menu_handler(update, context):
     text = update.message.text.strip().lower()
     admin = is_admin(user.id)
 
-    if text in ["order produk", "🛒 order produk"]:
+    # === MAPPING MENU REPLY KEYBOARD ===
+    if "order produk" in text:
         from handlers.produk_daftar_handler import lihat_produk_callback
         return lihat_produk_callback(update, context)
-    elif text in ["cek stok", "📦 cek stok"]:
+    elif "cek stok" in text:
         from handlers.stock_handler import stock_akrab_callback
         return stock_akrab_callback(update, context)
-    elif text in ["top up saldo", "💳 top up saldo"]:
+    elif "top up saldo" in text:
         from handlers.topup_handler import topup_callback
         return topup_callback(update, context)
-    elif text in ["riwayat transaksi", "📋 riwayat transaksi"]:
+    elif "riwayat transaksi" in text:
         from handlers.riwayat_handler import riwayat_callback
         return riwayat_callback(update, context)
-    elif text in ["lihat saldo", "💰 lihat saldo"]:
+    elif "lihat saldo" in text:
         from handlers.saldo_handler import lihat_saldo_callback
         return lihat_saldo_callback(update, context)
-    elif text in ["cek status", "🔍 cek status"]:
+    elif "cek status" in text:
         from handlers.status_handler import cek_status_callback
         return cek_status_callback(update, context)
-    elif text in ["bantuan", "❓ bantuan", "? bantuan", "❓"]:
+    elif "bantuan" in text or "❓" in text or "?" in text:
         msg = (
             "❓ <b>Pusat Bantuan</b>\n\n"
             "📖 <b>Cara Penggunaan:</b>\n"
@@ -69,13 +70,14 @@ def reply_menu_handler(update, context):
         )
         update.message.reply_text(msg, parse_mode="HTML", reply_markup=reply_main_menu(admin))
         return
-    elif text in ["admin panel", "🛠 admin panel"]:
+    elif "admin panel" in text:
         if admin:
             update.message.reply_text("🛠 <b>Admin Panel</b>\nSilakan pilih menu admin:", parse_mode="HTML", reply_markup=reply_main_menu(True))
         else:
             update.message.reply_text("❌ Kamu bukan admin.", reply_markup=reply_main_menu(False))
         return
     else:
+        # fallback
         update.message.reply_text(
             "Selamat datang! Silakan pilih menu:",
             parse_mode="HTML",
@@ -166,5 +168,4 @@ def main_menu_callback(update, context):
         )
         return
 
-# State untuk ConversationHandler (tambahkan sesuai kebutuhan)
 CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI = range(3)
