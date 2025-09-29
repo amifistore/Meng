@@ -25,6 +25,8 @@ def handle_input_tujuan(update, context):
     if not produk:
         update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=reply_main_menu(user.id))
         return ConversationHandler.END
+
+    # Cek saldo user
     saldo = get_saldo_user(user.id)
     if saldo < produk['harga']:
         update.message.reply_text(
@@ -35,6 +37,18 @@ def handle_input_tujuan(update, context):
             reply_markup=reply_main_menu(user.id)
         )
         return ConversationHandler.END
+
+    # Cek kuota produk sebelum lanjut (jika ingin double validasi)
+    kuota = produk.get('kuota', 0)
+    if kuota <= 0:
+        update.message.reply_text(
+            f"❌ Produk <b>{produk['nama']}</b> kuotanya sudah habis!\n"
+            "Silakan pilih produk lain.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_main_menu(user.id)
+        )
+        return ConversationHandler.END
+
     context.user_data["tujuan"] = text
     context.user_data["ref_id"] = str(uuid.uuid4())
     keyboard = [
@@ -46,7 +60,8 @@ def handle_input_tujuan(update, context):
         f"🆔 Ref ID: <code>{context.user_data['ref_id']}</code>\n"
         f"📦 Produk: <b>{produk['nama']}</b>\n"
         f"💰 Harga: <b>Rp {produk['harga']:,}</b>\n"
-        f"📱 Tujuan: <b>{text}</b>\n\n"
+        f"📱 Tujuan: <b>{text}</b>\n"
+        f"Stok: <b>{kuota}</b>\n\n"
         f"Klik <b>Konfirmasi</b> untuk melanjutkan atau <b>Batal</b> untuk membatalkan.",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(keyboard)
