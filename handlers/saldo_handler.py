@@ -1,89 +1,93 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
-from telegram.ext import CallbackContext, ConversationHandler
-from saldo import get_saldo_user, tambah_saldo_user, get_riwayat_saldo
+from telegram import ParseMode
+from saldo import get_riwayat_saldo, get_all_user_ids
+from topup import get_riwayat_topup_user
 from markup import get_menu
 from config import ADMIN_IDS
-
-# State untuk ConversationHandler
-INPUT_SALDO_USERID, INPUT_SALDO_USERNAME, INPUT_SALDO_CHOOSE_USER, INPUT_SALDO_NOMINAL = range(4)
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-def lihat_saldo_callback(update: Update, context: CallbackContext):
+def riwayat_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
-    saldo = get_saldo_user(user.id)
-    msg = f"💰 Saldo Anda saat ini: <b>Rp {saldo:,}</b>"
+    riwayat_data = get_riwayat_saldo(user.id)
+    topup_data = get_riwayat_topup_user(user.id)
+    msg = ""
+    if not riwayat_data and not topup_data:
+        msg = "📄 *Riwayat Transaksi Kosong*\n\nBelum ada transaksi yang dilakukan."
+    else:
+        msg = "📄 *Riwayat Saldo & Topup Terakhir*\n\n"
+        if riwayat_data:
+            msg += "*Saldo/Order Terakhir:*\n"
+            # riwayat_data adalah list of dict
+            for i, trx in enumerate(reversed(riwayat_data[-5:]), 1):
+                nominal_int = int(trx.get("perubahan", 0))
+                status = "✅" if nominal_int > 0 else "❌"
+                tipe = trx.get("tipe", "")
+                ket = trx.get("keterangan", "")
+                waktu = trx.get("tanggal", "")
+                msg += f"{i}. {status} {tipe} {nominal_int:+,}\n"
+                msg += f"   🕒 {waktu}\n   {ket}\n\n"
+        if topup_data:
+            msg += "*Topup Terakhir:*\n"
+            # topup_data adalah list of dict
+            for i, tup in enumerate(topup_data[:5], 1):
+                topup_nominal = int(tup.get("nominal", 0))
+                status = tup.get("status", "")
+                tanggal = tup.get("tanggal", "")
+                msg += f"{i}. ID: `{tup.get('id')}` | Rp {topup_nominal:,} | Status: {status} | {tanggal}\n"
+    _, markup = get_menu(is_admin(user.id))
     update.callback_query.edit_message_text(
         msg,
-        parse_mode="HTML",
-        reply_markup=get_menu(is_admin(user.id))
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=markup
     )
 
-# =============== FLOW: Pilih User dari Daftar (default) ===============
-def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
+def semua_riwayat_callback(update, context):
     user = update.callback_query.from_user
     update.callback_query.answer()
     if not is_admin(user.id):
+        _, markup = get_menu(is_admin(user.id))
         update.callback_query.edit_message_text(
-            "❌ Akses hanya untuk admin.",
-            parse_mode="HTML",
-            reply_markup=get_menu(is_admin(user.id))
+            "❌ Akses ditolak.",
+            reply_markup=markup
         )
-        return ConversationHandler.END
-    # Ambil user-user yang pernah transaksi dari riwayat saldo DB
-    riwayat_user = {}
-    for row in get_riwayat_saldo(None, admin_mode=True):
-        riwayat_user[row[1]] = True
-    keyboard = []
-    for user_id in riwayat_user.keys():
-        keyboard.append([InlineKeyboardButton(f"UserID: {user_id}", callback_data=f"chooseuser|{user_id}")])
-    if not keyboard:
-        update.callback_query.edit_message_text(
-            "❌ Tidak ada user yang pernah bertransaksi.",
-            parse_mode="HTML",
-            reply_markup=get_menu(is_admin(user.id))
-        )
-        return ConversationHandler.END
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        return
+    all_riwayat = get_riwayat_saldo(None, limit=50, admin_mode=True)
+    user_map = {}
+    total = 0
+    if all_riwayat:
+        for row in all_riwayat:
+            waktu, user_id, tipe, nominal, ket = row
+            nominal_int = int(nominal) if nominal is not None else 0
+            if user_id not in user_map:
+                user_map[user_id] = {"order": [], "topup": []}
+            user_map[user_id]["order"].append((waktu, tipe, nominal_int, ket))
+            total += nominal_int if nominal_int > 0 else 0
+    for uid in get_all_user_ids():
+        tups = get_riwayat_topup_user(uid)
+        if tups:
+            if uid not in user_map:
+                user_map[uid] = {"order": [], "topup": []}
+            user_map[uid]["topup"].extend([
+                (tup.get("id"), int(tup.get("nominal", 0)), tup.get("status", ""), tup.get("tanggal", "")) for tup in tups
+            ])
+    if not user_map:
+        msg = "📄 *Semua Riwayat Kosong*\n\nBelum ada transaksi dari semua user."
+    else:
+        msg = "📄 *Semua Riwayat Transaksi*\n\n"
+        for user_id, transaksi in user_map.items():
+            msg += f"👤 User `{user_id}`:\n"
+            for trx in transaksi["order"][-3:]:
+                status = "✅" if trx[2] > 0 else "❌"
+                msg += f"   {status} {trx[1]} {trx[2]:+,}\n   🕒 {trx[0]}\n   {trx[3]}\n"
+            for tup in transaksi["topup"][:2]:
+                msg += f"   💸 Topup ID: `{tup[0]}` | Rp {tup[1]:,} | Status: {tup[2]} | {tup[3]}\n"
+            msg += "\n"
+        msg += f"💰 *Total Transaksi: Rp {total:,}*"
+    _, markup = get_menu(is_admin(user.id))
     update.callback_query.edit_message_text(
-        "👤 Pilih user yang ingin ditambah saldonya:",
-        reply_markup=reply_markup,
-        parse_mode="HTML"
+        msg,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=markup
     )
-    return INPUT_SALDO_CHOOSE_USER
-
-def tambah_saldo_choose_user_input(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    data = query.data
-    if data.startswith("chooseuser|"):
-        user_id = int(data.split("|")[1])
-        context.user_data['tambah_saldo_user_id'] = user_id
-        query.edit_message_text(
-            f"User terpilih: <code>{user_id}</code>\nMasukkan nominal saldo yang ingin ditambahkan:",
-            parse_mode="HTML"
-        )
-        return INPUT_SALDO_NOMINAL
-    query.edit_message_text("❌ Pilihan tidak valid.", parse_mode="HTML")
-    return ConversationHandler.END
-
-def tambah_saldo_nominal_input(update: Update, context: CallbackContext):
-    text = update.message.text.strip()
-    if not text.replace(".", "").replace(",", "").isdigit():
-        update.message.reply_text("❌ Format nominal tidak valid. Masukkan nominal angka:", parse_mode="HTML")
-        return INPUT_SALDO_NOMINAL
-    nominal = int(text.replace(".", "").replace(",", ""))
-    user_id = context.user_data.get('tambah_saldo_user_id')
-    tambah_saldo_user(user_id, nominal, tipe="admin", keterangan="Tambah saldo manual admin")
-    saldo = get_saldo_user(user_id)
-    update.message.reply_text(
-        f"✅ Saldo user <code>{user_id}</code> berhasil ditambah Rp {nominal:,}!\nSaldo sekarang: <b>Rp {saldo:,}</b>",
-        parse_mode="HTML"
-    )
-    context.user_data.clear()
-    return ConversationHandler.END
-
-# =============== Penting: ALIAS UNTUK MAIN.PY ===============
-tambah_saldo_callback = tambah_saldo_choose_user_start
