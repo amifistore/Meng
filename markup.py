@@ -30,7 +30,7 @@ def get_menu(is_admin=False):
 # Alias agar handler lama tetap berjalan
 reply_main_menu = get_menu
 
-# PRODUK INLINE KEYBOARD - TAMBAHKAN INI!
+# PRODUK INLINE KEYBOARD
 def produk_inline_keyboard(produk_list):
     """
     Generate InlineKeyboardMarkup untuk daftar produk.
