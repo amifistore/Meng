@@ -23,13 +23,12 @@ def reply_main_menu(is_admin=False):
         [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
         [KeyboardButton("❓ Bantuan")],
     ]
-    # Contoh: jika ingin menambah tombol admin di reply keyboard juga
     if is_admin:
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def get_menu(is_admin=False):
-    # Sama seperti reply_main_menu
+    # Bisa dipakai di mana saja, argumen sama seperti reply_main_menu
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
         [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
@@ -41,11 +40,8 @@ def get_menu(is_admin=False):
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def produk_inline_keyboard(produk_list=None):
-    """
-    Membuat inline keyboard untuk daftar produk.
-    produk_list: list of dict {id, nama}
-    """
     buttons = []
+    # produk_list bisa None atau list
     if produk_list:
         for produk in produk_list:
             buttons.append([InlineKeyboardButton(
