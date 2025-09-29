@@ -1,3 +1,5 @@
+from telegram import ParseMode
+from telegram.ext import ConversationHandler
 from markup import reply_main_menu
 from provider import create_trx
 from saldo import kurang_saldo_user
@@ -5,6 +7,7 @@ from riwayat import tambah_riwayat
 import time
 
 def handle_konfirmasi(update, context):
+    # Handle dari inline button konfirmasi/batal
     if update.callback_query:
         query = update.callback_query
         user = query.from_user
@@ -78,6 +81,8 @@ def handle_konfirmasi(update, context):
                 return ConversationHandler.END
         query.edit_message_text("❌ Pilihan tidak valid.", reply_markup=reply_main_menu(user.id))
         return ConversationHandler.END
+
+    # Handle dari text konfirmasi/batal
     else:
         user = update.message.from_user
         text = update.message.text.strip().upper()
@@ -152,4 +157,4 @@ def handle_konfirmasi(update, context):
             "Ketik YA untuk konfirmasi atau BATAL untuk membatalkan.",
             parse_mode=ParseMode.HTML
         )
-        return 2  # KONFIRMASI
+        return KONFIRMASI
