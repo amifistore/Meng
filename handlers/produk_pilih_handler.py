@@ -12,6 +12,7 @@ def produk_pilih_callback(update, context):
     data = query.data
     query.answer()
 
+    # Saat user klik tombol produk
     if data.startswith("produk_static|"):
         try:
             idx = int(data.split("|")[1])
@@ -47,10 +48,12 @@ def produk_pilih_callback(update, context):
             query.edit_message_text("❌ Error memilih produk.", reply_markup=reply_main_menu(user.id))
             return ConversationHandler.END
 
+    # Tombol kembali ke menu utama
     elif data == "back_main":
         query.edit_message_text("Kembali ke menu utama.", reply_markup=reply_main_menu(user.id))
         return ConversationHandler.END
 
+    # Callback tidak dikenali
     else:
         query.edit_message_text("❌ Callback tidak dikenali.", reply_markup=reply_main_menu(user.id))
         return ConversationHandler.END
