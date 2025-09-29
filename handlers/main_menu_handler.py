@@ -1,10 +1,19 @@
-#!/usr/bin/env python3
-import sys
-import time
-import logging
-import sqlite3
-import os
-import shutil
+from telegram import ParseMode
+from markup import reply_main_menu
+from config import ADMIN_IDS
+
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
+
+def start(update, context):
+    user = update.effective_user
+    update.message.reply_text(
+        "Selamat datang! Silakan pilih menu:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=reply_main_menu(is_admin(user.id))
+    )
+
+# ... fungsi lain seperti reply_menu_handler, cancel, dll ...
 
 # Setup logging
 logging.basicConfig(
