@@ -11,6 +11,6 @@ def reply_main_menu(is_admin=False):
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# Dummy, supaya tidak error import:
+# Agar import di main.py tidak error dan menu atas tidak muncul
 def main_menu_markup(is_admin=False):
     return reply_main_menu(is_admin)
