@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from markup import main_menu_markup, reply_main_menu
+from markup import reply_main_menu
 
 def log_error(error_text):
     with open("error.log", "a", encoding='utf-8') as f:
