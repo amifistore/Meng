@@ -14,6 +14,11 @@ from handlers.produk_daftar_handler import lihat_produk_callback
 from handlers.produk_pilih_handler import produk_pilih_callback, CHOOSING_PRODUK, INPUT_TUJUAN
 from handlers.input_tujuan_handler import handle_input_tujuan, KONFIRMASI
 from handlers.order_handler import handle_konfirmasi
+from handlers.stock_handler import stock_akrab_callback
+from handlers.topup_handler import topup_callback
+from handlers.riwayat_handler import riwayat_callback
+from handlers.saldo_handler import lihat_saldo_callback
+from handlers.status_handler import cek_status_callback
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,12 +61,19 @@ def main():
         )
         dp.add_handler(order_conv_handler)
 
-        # Command/menu handler
+        # Handler untuk menu lain
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("help", start))
         dp.add_handler(CommandHandler("menu", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
+        dp.add_handler(MessageHandler(Filters.regex("^(📦 Cek Stok)$"), stock_akrab_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
+
+        # Fallback ke reply_menu_handler untuk semua menu
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
 
         # Error handler
