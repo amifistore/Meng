@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import CallbackContext, ConversationHandler
 import requests
-from markup import get_menu
+from markup import reply_main_menu
 
 INPUT_REFID = 100
 
@@ -13,7 +13,7 @@ def cek_status_callback(update: Update, context: CallbackContext):
     query.answer()
     query.edit_message_text(
         "🔎 Silakan masukkan kode/ID transaksi (refid) yang ingin dicek statusnya:",
-        reply_markup=get_menu(user_id)
+        reply_markup=reply_main_menu(user_id)
     )
     return INPUT_REFID
 
@@ -22,7 +22,7 @@ def input_refid_step(update: Update, context: CallbackContext):
     api_key = context.bot_data.get("provider_api_key")  # Set api_key di bot_data pada start up (main.py)
     refid = text
     if not api_key or not refid:
-        update.message.reply_text("❌ API Key belum diset atau refid kosong.", reply_markup=get_menu(update.message.from_user.id))
+        update.message.reply_text("❌ API Key belum diset atau refid kosong.", reply_markup=reply_main_menu(update.message.from_user.id))
         return ConversationHandler.END
 
     url = f"{PROVIDER_STATUS_URL}?api_key={api_key}&refid={refid}"
@@ -48,7 +48,7 @@ def input_refid_step(update: Update, context: CallbackContext):
             )
         else:
             msg = f"❌ Status tidak ditemukan atau gagal.\n{data.get('message', '')}"
-        update.message.reply_text(msg, parse_mode="HTML", reply_markup=get_menu(update.message.from_user.id))
+        update.message.reply_text(msg, parse_mode="HTML", reply_markup=reply_main_menu(update.message.from_user.id))
     except Exception as e:
-        update.message.reply_text(f"❌ Error mengambil status: {e}", reply_markup=get_menu(update.message.from_user.id))
+        update.message.reply_text(f"❌ Error mengambil status: {e}", reply_markup=reply_main_menu(update.message.from_user.id))
     return ConversationHandler.END
