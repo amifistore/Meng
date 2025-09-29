@@ -75,7 +75,6 @@ def reply_menu_handler(update, context):
         )
 
 def main_menu_callback(update, context):
-    # Dummy handler agar import tidak error
     query = update.callback_query
     user = query.from_user
     admin = is_admin(user.id)
@@ -85,5 +84,3 @@ def main_menu_callback(update, context):
         parse_mode=ParseMode.HTML,
         reply_markup=reply_main_menu(admin)
     )
-
-CHOOSING_PRODUK, INPUT_TUJUAN, KONFIRMASI = range(3)
