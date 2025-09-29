@@ -1,10 +1,14 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import CallbackContext, ConversationHandler
 from saldo import get_saldo_user, tambah_saldo_user, get_riwayat_saldo
-from markup import get_menu, is_admin
+from markup import get_menu
+from config import ADMIN_IDS
 
 # State untuk ConversationHandler
 INPUT_SALDO_USERID, INPUT_SALDO_USERNAME, INPUT_SALDO_CHOOSE_USER, INPUT_SALDO_NOMINAL = range(4)
+
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
 
 def lihat_saldo_callback(update: Update, context: CallbackContext):
     user = update.callback_query.from_user
@@ -14,7 +18,7 @@ def lihat_saldo_callback(update: Update, context: CallbackContext):
     update.callback_query.edit_message_text(
         msg,
         parse_mode="HTML",
-        reply_markup=get_menu(user.id)
+        reply_markup=get_menu(is_admin(user.id))
     )
 
 # =============== FLOW: Pilih User dari Daftar (default) ===============
@@ -25,7 +29,7 @@ def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
         update.callback_query.edit_message_text(
             "❌ Akses hanya untuk admin.",
             parse_mode="HTML",
-            reply_markup=get_menu(user.id)
+            reply_markup=get_menu(is_admin(user.id))
         )
         return ConversationHandler.END
     # Ambil user-user yang pernah transaksi dari riwayat saldo DB
@@ -39,7 +43,7 @@ def tambah_saldo_choose_user_start(update: Update, context: CallbackContext):
         update.callback_query.edit_message_text(
             "❌ Tidak ada user yang pernah bertransaksi.",
             parse_mode="HTML",
-            reply_markup=get_menu(user.id)
+            reply_markup=get_menu(is_admin(user.id))
         )
         return ConversationHandler.END
     reply_markup = InlineKeyboardMarkup(keyboard)
