@@ -1,10 +1,10 @@
-def produk_pilih_callback(update, context):
-    query = update.callback_query
-    query.answer()
-    data = query.data
-    if data.startswith("produk|"):
-        kode = data.split("|")[1]
-        context.user_data["order_produk_kode"] = kode
-        msg = f"Masukkan nomor tujuan untuk produk <b>{kode}</b> (misal: 08123456789)"
-        query.edit_message_text(msg, parse_mode="HTML")
-        # Next: input_tujuan_step
+def lihat_produk_callback(update, context):
+    produk_list = [
+        {"nama": "Pulsa 50rb", "kode": "pulsa50"},
+        {"nama": "Paket Data 10GB", "kode": "data10"},
+        {"nama": "Voucher Game", "kode": "gamevouch"}
+    ]
+    msg = "🛒 Daftar produk:\n"
+    for produk in produk_list:
+        msg += f"- {produk['nama']} ({produk['kode']})\n"
+    update.message.reply_text(msg)
