@@ -96,3 +96,19 @@ def get_riwayat_topup_user(user_id, limit=20):
     except Exception as e:
         print(f"Error get_riwayat_topup_user: {e}")
         return []
+
+def update_status_topup(topup_id, status):
+    """
+    Update status topup pada tabel topup.
+    status: misal "pending", "approved", "rejected"
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("UPDATE topup SET status = ? WHERE id = ?", (status, topup_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error update_status_topup: {e}")
+        return False
