@@ -1,6 +1,6 @@
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# Inline keyboard menu utama (buat pesan bot)
+# Inline keyboard menu utama (tombol di pesan bot)
 def main_menu_markup(is_admin=False):
     buttons = [
         [InlineKeyboardButton("🛒 Order Produk", callback_data="beli_produk")],
@@ -27,17 +27,20 @@ def get_menu(is_admin=False):
         buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-# Alias supaya handler lama yang import reply_main_menu tetap jalan
+# Alias agar handler lama tetap berjalan
 reply_main_menu = get_menu
 
-# Inline keyboard produk (daftar produk, atau fallback jika kosong)
+# Inline keyboard produk (daftar produk, fallback jika kosong)
 def produk_inline_keyboard(produk_list=None):
     buttons = []
     if produk_list:
         for produk in produk_list:
+            # Pastikan id produk selalu string, dan callback_data juga string
+            produk_id = str(produk.get('id', ''))
+            produk_nama = produk.get('nama', produk_id)
             buttons.append([InlineKeyboardButton(
-                produk.get('nama', str(produk.get('id', 'Produk'))),
-                callback_data=f"produk|{produk.get('id')}"
+                produk_nama,
+                callback_data=f"produk|{produk_id}"
             )])
     else:
         buttons.append([InlineKeyboardButton("Tidak ada produk tersedia", callback_data="produk|none")])
@@ -45,6 +48,7 @@ def produk_inline_keyboard(produk_list=None):
 
 # Inline keyboard admin edit produk (panel admin)
 def admin_edit_produk_keyboard(produk_id):
+    produk_id = str(produk_id)
     buttons = [
         [InlineKeyboardButton("✏️ Edit Harga", callback_data=f"editharga|{produk_id}")],
         [InlineKeyboardButton("✏️ Edit Deskripsi", callback_data=f"editdeskripsi|{produk_id}")],
