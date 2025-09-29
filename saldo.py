@@ -93,31 +93,45 @@ def get_saldo_user(user_id):
         print(f"Error get_saldo_user: {e}")
         return 0
 
-def get_riwayat_saldo(user_id, limit=20):
-    """Ambil riwayat saldo user, hasil list of dict"""
+def get_riwayat_saldo(user_id, limit=20, admin_mode=False):
+    """
+    Ambil riwayat saldo user, hasil list of dict.
+    Jika admin_mode=True dan user_id=None, ambil semua riwayat (untuk admin rekap).
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute("""
-            SELECT id, user_id, perubahan, tipe, keterangan, tanggal
-            FROM riwayat_saldo
-            WHERE user_id = ?
-            ORDER BY id DESC
-            LIMIT ?
-        """, (user_id, limit))
-        rows = cur.fetchall()
-        conn.close()
-        riwayat = []
-        for row in rows:
-            riwayat.append({
-                "id": row[0],
-                "user_id": row[1],
-                "perubahan": row[2],
-                "tipe": row[3],
-                "keterangan": row[4],
-                "tanggal": row[5]
-            })
-        return riwayat
+        if admin_mode and user_id is None:
+            cur.execute("""
+                SELECT tanggal, user_id, tipe, perubahan, keterangan
+                FROM riwayat_saldo
+                ORDER BY id DESC
+                LIMIT ?
+            """, (limit,))
+            rows = cur.fetchall()
+            conn.close()
+            return rows
+        else:
+            cur.execute("""
+                SELECT id, user_id, perubahan, tipe, keterangan, tanggal
+                FROM riwayat_saldo
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            conn.close()
+            riwayat = []
+            for row in rows:
+                riwayat.append({
+                    "id": row[0],
+                    "user_id": row[1],
+                    "perubahan": row[2],
+                    "tipe": row[3],
+                    "keterangan": row[4],
+                    "tanggal": row[5]
+                })
+            return riwayat
     except Exception as e:
         print(f"Error get_riwayat_saldo: {e}")
         return []
