@@ -1,75 +1,14 @@
-from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ParseMode
 from telegram.ext import ConversationHandler
 from markup import reply_main_menu
 from provider import create_trx
-from saldo import get_saldo_user, kurang_saldo_user
+from saldo import kurang_saldo_user
 from riwayat import tambah_riwayat
-import uuid
 import time
 
-# States
-INPUT_TUJUAN, KONFIRMASI = range(2)
-
-def handle_input_tujuan(update, context):
-    user = update.message.from_user
-    text = update.message.text.strip()
-    
-    # Cancel command
-    if text == '/batal':
-        context.user_data.clear()
-        update.message.reply_text("❌ Order dibatalkan.", reply_markup=reply_main_menu(user.id))
-        return ConversationHandler.END
-    
-    # Validate phone number (min 10 digit, all digit)
-    if not text.isdigit() or len(text) < 10 or len(text) > 15:
-        update.message.reply_text(
-            "❌ Format nomor tidak valid! Harus angka minimal 10 digit dan maksimal 15 digit.\n"
-            "Contoh: 081234567890\n\n"
-            "Silakan input ulang atau ketik /batal untuk membatalkan."
-        )
-        return INPUT_TUJUAN
-    
-    # Get product from context
-    produk = context.user_data.get("produk")
-    if not produk:
-        update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=reply_main_menu(user.id))
-        return ConversationHandler.END
-    
-    # Check saldo
-    saldo = get_saldo_user(user.id)
-    if saldo < produk['harga']:
-        update.message.reply_text(
-            f"❌ Saldo tidak cukup!\n"
-            f"Produk: {produk['nama']} - Rp {produk['harga']:,}\n"
-            f"Saldo kamu: Rp {saldo:,}\n\n"
-            "Silakan top up terlebih dahulu.",
-            reply_markup=reply_main_menu(user.id)
-        )
-        return ConversationHandler.END
-    
-    # Save destination
-    context.user_data["tujuan"] = text
-    context.user_data["ref_id"] = str(uuid.uuid4())
-
-    keyboard = [
-        [InlineKeyboardButton("✅ Konfirmasi", callback_data="order_konfirmasi"),
-         InlineKeyboardButton("❌ Batal", callback_data="order_batal")]
-    ]
-    update.message.reply_text(
-        f"📋 <b>KONFIRMASI ORDER</b>\n\n"
-        f"🆔 Ref ID: <code>{context.user_data['ref_id']}</code>\n"
-        f"📦 Produk: <b>{produk['nama']}</b>\n"
-        f"💰 Harga: <b>Rp {produk['harga']:,}</b>\n"
-        f"📱 Tujuan: <b>{text}</b>\n\n"
-        f"Klik <b>Konfirmasi</b> untuk melanjutkan atau <b>Batal</b> untuk membatalkan.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-    
-    return KONFIRMASI
+KONFIRMASI = 2
 
 def handle_konfirmasi(update, context):
-    # Handler tombol inline dan fallback teks
     if update.callback_query:
         query = update.callback_query
         user = query.from_user
@@ -89,12 +28,6 @@ def handle_konfirmasi(update, context):
             msg_proc = query.edit_message_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                raw_resp_text = str(result)
-                query.bot.send_message(
-                    chat_id=user.id,
-                    text=f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
-                    parse_mode=ParseMode.HTML
-                )
                 status = str(result.get('status', '')).lower()
                 message = str(result.get('message', '')).lower()
                 status_code = result.get('status_code', None)
@@ -116,7 +49,6 @@ def handle_konfirmasi(update, context):
                         "sn": result.get('sn', ''),
                         "keterangan": result.get('message', '')
                     }
-                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     msg_proc.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
@@ -151,6 +83,7 @@ def handle_konfirmasi(update, context):
         query.edit_message_text("❌ Pilihan tidak valid.", reply_markup=reply_main_menu(user.id))
         return ConversationHandler.END
     else:
+        # Konfirmasi via teks (YA/BATAL)
         user = update.message.from_user
         text = update.message.text.strip().upper()
         if text == 'BATAL':
@@ -167,11 +100,6 @@ def handle_konfirmasi(update, context):
             processing_msg = update.message.reply_text("🔄 Memproses order... Silakan tunggu.")
             try:
                 result = create_trx(produk['kode'], tujuan, ref_id)
-                raw_resp_text = str(result)
-                update.message.reply_text(
-                    f"🔎 <b>RESPON PROVIDER:</b>\n<code>{raw_resp_text}</code>",
-                    parse_mode=ParseMode.HTML
-                )
                 status = str(result.get('status', '')).lower()
                 message = str(result.get('message', '')).lower()
                 status_code = result.get('status_code', None)
@@ -193,7 +121,6 @@ def handle_konfirmasi(update, context):
                         "sn": result.get('sn', ''),
                         "keterangan": result.get('message', '')
                     }
-                    print("[DEBUG] transaksi dicatat:", transaksi)
                     tambah_riwayat(user.id, transaksi)
                     processing_msg.edit_text(
                         f"✅ <b>ORDER BERHASIL</b>\n\n"
