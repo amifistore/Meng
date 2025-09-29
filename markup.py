@@ -13,8 +13,8 @@ def reply_main_menu(is_admin=False):
 
 def produk_inline_keyboard(produk_list):
     keyboard = [
-        [InlineKeyboardButton(p['nama'], callback_data=f"produk|{p['kode']}")]
-        for p in produk_list
+        [InlineKeyboardButton(p['nama'], callback_data=f"produk_static|{i}")]
+        for i, p in enumerate(produk_list)
     ]
-    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
     return InlineKeyboardMarkup(keyboard)
