@@ -15,7 +15,8 @@ def admin_edit_produk_callback(update, context):
     _, kode = data.split("|")
     produk = get_produk_by_kode(kode)
     if not produk:
-        query.edit_message_text("❌ Produk tidak ditemukan.", reply_markup=get_menu(user.id))
+        _, markup = get_menu(user.id)
+        query.edit_message_text("❌ Produk tidak ditemukan.", reply_markup=markup)
         return ConversationHandler.END
 
     msg = (
@@ -50,17 +51,19 @@ def admin_edit_produk_step(update, context):
     value = update.message.text.strip() if update.message and update.message.text else ""
 
     if not kode or not field:
+        _, markup = get_menu(getattr(update.effective_user, 'id', None))
         update.message.reply_text(
             "❌ Kueri tidak valid. Silakan ulangi.",
-            reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+            reply_markup=markup
         )
         return ConversationHandler.END
 
     p = get_produk_by_kode(kode)
     if not p:
+        _, markup = get_menu(getattr(update.effective_user, 'id', None))
         update.message.reply_text(
             "❌ Produk tidak ditemukan.",
-            reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+            reply_markup=markup
         )
         return ConversationHandler.END
 
@@ -73,6 +76,7 @@ def admin_edit_produk_step(update, context):
                 old_harga = p.get("harga", 0)
                 edit_produk(kode, harga=harga)
                 p_new = get_produk_by_kode(kode)
+                _, markup = get_menu(getattr(update.effective_user, 'id', None))
                 update.message.reply_text(
                     f"✅ <b>Harga produk berhasil diupdate!</b>\n\n"
                     f"Produk: <b>{kode}</b> - {p_new.get('nama','-')}\n"
@@ -80,7 +84,7 @@ def admin_edit_produk_step(update, context):
                     f"Harga baru: <b>Rp {p_new.get('harga',0):,}</b>\n"
                     f"Deskripsi: {p_new.get('deskripsi','')}",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+                    reply_markup=markup
                 )
             except Exception as e:
                 update.message.reply_text(
@@ -93,43 +97,47 @@ def admin_edit_produk_step(update, context):
             old_deskripsi = p.get("deskripsi","")
             edit_produk(kode, deskripsi=value)
             p_new = get_produk_by_kode(kode)
+            _, markup = get_menu(getattr(update.effective_user, 'id', None))
             update.message.reply_text(
                 f"✅ <b>Deskripsi produk berhasil diupdate!</b>\n\n"
                 f"Produk: <b>{kode}</b> - {p_new.get('nama','-')}\n"
                 f"Deskripsi lama: <code>{old_deskripsi}</code>\n"
                 f"Deskripsi baru: <b>{p_new.get('deskripsi','')}</b>",
                 parse_mode=ParseMode.HTML,
-                reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+                reply_markup=markup
             )
 
         elif field == "resetcustom":
             ok = reset_produk_custom(kode)
+            _, markup = get_menu(getattr(update.effective_user, 'id', None))
             if ok:
                 update.message.reply_text(
                     f"✅ Sukses reset custom produk <b>{kode}</b> ke default.",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+                    reply_markup=markup
                 )
             else:
                 update.message.reply_text(
                     f"❌ Gagal reset custom produk <b>{kode}</b>.",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+                    reply_markup=markup
                 )
 
         else:
+            _, markup = get_menu(getattr(update.effective_user, 'id', None))
             update.message.reply_text(
                 "❌ Field tidak dikenal.",
-                reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+                reply_markup=markup
             )
 
     except Exception as e:
+        _, markup = get_menu(getattr(update.effective_user, 'id', None))
         update.message.reply_text(
             f"❌ <b>Gagal update produk!</b>\n"
             f"Produk: <b>{kode}</b> - {p.get('nama','-')}\n"
             f"Error: {str(e)}",
             parse_mode=ParseMode.HTML,
-            reply_markup=get_menu(getattr(update.effective_user, 'id', None))
+            reply_markup=markup
         )
 
     finally:
