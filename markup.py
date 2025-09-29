@@ -1,4 +1,4 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu_markup(is_admin=False):
     buttons = [
@@ -14,11 +14,10 @@ def main_menu_markup(is_admin=False):
         buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
     return InlineKeyboardMarkup(buttons)
 
-def reply_main_menu():
-    buttons = [
-        [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
-        [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
-        [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
-        [KeyboardButton("❓ Bantuan")],
-    ]
-    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+def get_menu(is_admin=False):
+    info_text = (
+        "<b>🤖 Selamat datang di Bot PPOB!</b>\n\n"
+        "Silakan pilih menu di bawah ini untuk mulai transaksi, cek saldo, riwayat, dan lain-lain."
+    )
+    markup = main_menu_markup(is_admin=is_admin)
+    return info_text, markup
