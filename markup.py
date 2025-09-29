@@ -16,31 +16,44 @@ def main_menu_markup(is_admin=False):
         buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
     return InlineKeyboardMarkup(buttons)
 
-def reply_main_menu():
+def reply_main_menu(is_admin=False):
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
         [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
         [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
         [KeyboardButton("❓ Bantuan")],
     ]
+    # Contoh: jika ingin menambah tombol admin di reply keyboard juga
+    if is_admin:
+        buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-def get_menu():
+def get_menu(is_admin=False):
+    # Sama seperti reply_main_menu
     buttons = [
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
         [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
         [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
         [KeyboardButton("❓ Bantuan")],
     ]
+    if is_admin:
+        buttons.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
-def produk_inline_keyboard(produk_list):
+def produk_inline_keyboard(produk_list=None):
+    """
+    Membuat inline keyboard untuk daftar produk.
+    produk_list: list of dict {id, nama}
+    """
     buttons = []
-    for produk in produk_list:
-        buttons.append([InlineKeyboardButton(
-            produk.get('nama', str(produk.get('id', 'Produk'))),
-            callback_data=f"produk|{produk.get('id')}"
-        )])
+    if produk_list:
+        for produk in produk_list:
+            buttons.append([InlineKeyboardButton(
+                produk.get('nama', str(produk.get('id', 'Produk'))),
+                callback_data=f"produk|{produk.get('id')}"
+            )])
+    else:
+        buttons.append([InlineKeyboardButton("Tidak ada produk tersedia", callback_data="produk|none")])
     return InlineKeyboardMarkup(buttons)
 
 def admin_edit_produk_keyboard(produk_id):
