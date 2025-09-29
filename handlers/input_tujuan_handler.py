@@ -1,7 +1,11 @@
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram.ext import ConversationHandler
+import uuid
 from markup import reply_main_menu
 from saldo import get_saldo_user
 
 INPUT_TUJUAN = 1
+KONFIRMASI = 2
 
 def handle_input_tujuan(update, context):
     user = update.message.from_user
@@ -47,4 +51,4 @@ def handle_input_tujuan(update, context):
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-    return 2  # KONFIRMASI
+    return KONFIRMASI
