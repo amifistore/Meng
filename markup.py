@@ -12,8 +12,12 @@ def reply_main_menu(is_admin=False):
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def produk_inline_keyboard(produk_list):
+    # Patch: tampilkan nama produk + stok/kuota
     keyboard = [
-        [InlineKeyboardButton(p['nama'], callback_data=f"produk_static|{i}")]
+        [InlineKeyboardButton(
+            f"{p['nama']} (Stok: {p.get('kuota', 0)})",
+            callback_data=f"produk_static|{i}"
+        )]
         for i, p in enumerate(produk_list)
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_main")])
