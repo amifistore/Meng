@@ -2,6 +2,7 @@
 import sys
 import time
 import logging
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,6 +15,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from markup import reply_main_menu
+from config import TOKEN, ADMIN_IDS
+from handlers.main_menu_handler import start, cancel, reply_menu_handler
+from handlers.produk_daftar_handler import lihat_produk_callback
+from handlers.produk_pilih_handler import produk_pilih_callback
+from handlers.input_tujuan_handler import handle_input_tujuan
+from handlers.konfirmasi_handler import handle_konfirmasi
+
+ORDER_PRODUK, INPUT_TUJUAN, KONFIRMASI = range(3)
 
 def log_error(error_text):
     with open("error.log", "a", encoding='utf-8') as f:
@@ -24,14 +33,22 @@ def main():
     print("🤖 BOT STARTING - FULL FEATURE VERSION")
     print("=" * 60)
     try:
-        from config import TOKEN, ADMIN_IDS
-        from telegram.ext import (
-            Updater, CommandHandler, MessageHandler, Filters
-        )
-        from handlers.main_menu_handler import start, cancel, main_menu_callback, reply_menu_handler
-
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
+
+        # ConversationHandler untuk order produk
+        order_conv_handler = ConversationHandler(
+            entry_points=[MessageHandler(Filters.regex("^(🛒 Order Produk)$"), lihat_produk_callback)],
+            states={
+                ORDER_PRODUK: [CallbackQueryHandler(produk_pilih_callback, pattern='^produk\\|')],
+                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+                KONFIRMASI: [CallbackQueryHandler(handle_konfirmasi, pattern='^(order_konfirmasi|order_batal)$'),
+                             MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)]
+            },
+            fallbacks=[CommandHandler('cancel', cancel)],
+            allow_reentry=True,
+        )
+        dp.add_handler(order_conv_handler)
 
         # Command handler
         dp.add_handler(CommandHandler("start", start))
@@ -62,7 +79,7 @@ def main():
             poll_interval=1.0,
             timeout=30,
             drop_pending_updates=True,
-            allowed_updates=['message']
+            allowed_updates=['message', 'callback_query']
         )
         print("=" * 60)
         print("🎉 BOT BERHASIL DIJALANKAN!")
