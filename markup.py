@@ -10,6 +10,7 @@ def main_menu_markup(is_admin=False):
         [InlineKeyboardButton("📋 Riwayat Transaksi", callback_data="riwayat")],
         [InlineKeyboardButton("💰 Lihat Saldo", callback_data="lihat_saldo")],
         [InlineKeyboardButton("🔍 Cek Status", callback_data="cek_status")],
+        [InlineKeyboardButton("❓ Bantuan", callback_data="help")],
     ]
     if is_admin:
         buttons.append([InlineKeyboardButton("🛠 Admin Panel", callback_data="back_admin")])
@@ -57,8 +58,8 @@ def topup_nominal_markup():
 
 def confirm_topup_markup():
     buttons = [
-        [InlineKeyboardButton("✅ Konfirmasi Topup", callback_data="confirm_topup"),
-         InlineKeyboardButton("❌ Batalkan", callback_data="cancel_topup")],
+        [InlineKeyboardButton("✅ Konfirmasi Topup", callback_data="topup_konfirm"),
+         InlineKeyboardButton("❌ Batalkan", callback_data="back_menu")],
         [InlineKeyboardButton("⬅️ Kembali", callback_data="back_menu")]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -110,6 +111,12 @@ def status_menu_markup():
     ]
     return InlineKeyboardMarkup(buttons)
 
+def help_menu_markup():
+    buttons = [
+        [InlineKeyboardButton("⬅️ Kembali ke Menu", callback_data="back_menu")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
 # ========== REPLY KEYBOARDS ==========
 
 def reply_main_menu():
@@ -117,6 +124,7 @@ def reply_main_menu():
         [KeyboardButton("🛒 Order Produk"), KeyboardButton("💳 Top Up Saldo")],
         [KeyboardButton("📦 Cek Stok"), KeyboardButton("📋 Riwayat Transaksi")],
         [KeyboardButton("💰 Lihat Saldo"), KeyboardButton("🔍 Cek Status")],
+        [KeyboardButton("❓ Bantuan")],
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
@@ -147,6 +155,11 @@ def custom_reply_keyboard(buttons):
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def get_menu(is_admin=False):
-    return main_menu_markup(is_admin=is_admin)
+    info_text = (
+        "<b>🤖 Selamat datang di Bot PPOB!</b>\n\n"
+        "Silakan pilih menu di bawah ini untuk mulai transaksi, cek saldo, riwayat, dan lain-lain."
+    )
+    markup = main_menu_markup(is_admin=is_admin)
+    return info_text, markup
 
 # ========== END OF FILE ==========
