@@ -1,4 +1,6 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import (
+    ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+)
 
 def main_menu_markup(is_admin=False):
     buttons = [
@@ -31,3 +33,17 @@ def get_menu():
         [KeyboardButton("❓ Bantuan")],
     ]
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+def produk_inline_keyboard(produk_list):
+    """
+    Membuat inline keyboard untuk daftar produk.
+    produk_list: list of dict {id, nama}
+    """
+    buttons = []
+    for produk in produk_list:
+        # Kamu bisa kembangkan callback_data sesuai kebutuhan handler
+        buttons.append([InlineKeyboardButton(
+            produk.get('nama', str(produk.get('id', 'Produk'))),
+            callback_data=f"produk|{produk.get('id')}"
+        )])
+    return InlineKeyboardMarkup(buttons)
