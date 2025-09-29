@@ -6,7 +6,6 @@ import sqlite3
 import os
 import shutil
 
-# Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -148,7 +147,7 @@ def main():
         )
         dp.add_handler(order_conv_handler)
 
-        # ConversationHandler untuk topup (jika perlu)
+        # ConversationHandler untuk topup
         topup_conv_handler = ConversationHandler(
             entry_points=[
                 CallbackQueryHandler(topup_callback, pattern='^topup$'),
