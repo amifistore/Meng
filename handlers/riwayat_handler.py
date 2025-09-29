@@ -1,7 +1,11 @@
 from telegram import ParseMode
 from saldo import get_riwayat_saldo, get_all_user_ids
 from topup import get_riwayat_topup_user
-from markup import get_menu, is_admin
+from markup import get_menu
+from config import ADMIN_IDS
+
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
 
 def riwayat_callback(update, context):
     user = update.callback_query.from_user
