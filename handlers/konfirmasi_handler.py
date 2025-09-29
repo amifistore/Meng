@@ -2,7 +2,6 @@ import time
 import logging
 from telegram.ext import ConversationHandler
 
-# Import dari modul lain (pastikan file saldo.py dan riwayat.py sudah ada)
 from saldo import kurang_saldo_user
 from riwayat import tambah_riwayat
 
