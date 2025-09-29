@@ -2,13 +2,19 @@ import requests
 from telegram import Update
 from telegram.ext import CallbackContext
 from utils import format_stock_akrab
-from markup import get_menu
+from markup import get_menu, main_menu_markup
 
 PROVIDER_STOCK_URL = "https://panel.khfy-store.com/api_v3/cek_stock_akrab"
 
 def stock_akrab_callback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
+    query = update.callback_query if hasattr(update, "callback_query") and update.callback_query else None
+    user_id = None
+    if query:
+        user_id = query.from_user.id
+        query.answer()
+    else:
+        user_id = update.effective_user.id if update.effective_user else None
+
     try:
         resp = requests.get(PROVIDER_STOCK_URL, timeout=10)
         resp.raise_for_status()
@@ -16,9 +22,18 @@ def stock_akrab_callback(update: Update, context: CallbackContext):
         msg = format_stock_akrab(data)
     except Exception as e:
         msg = f"<b>❌ Gagal mengambil data stok dari provider:</b>\n{str(e)}"
-    _, markup = get_menu(query.from_user.id)
-    query.edit_message_text(
-        msg,
-        parse_mode="HTML",
-        reply_markup=markup
-    )
+
+    # Gunakan main menu markup agar user bisa memilih menu lain setelah cek stok
+    markup = main_menu_markup()
+    if query:
+        query.edit_message_text(
+            msg,
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+    else:
+        update.message.reply_text(
+            msg,
+            parse_mode="HTML",
+            reply_markup=markup
+        )
