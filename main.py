@@ -19,6 +19,7 @@ from handlers.topup_handler import topup_callback
 from handlers.riwayat_handler import riwayat_callback
 from handlers.saldo_handler import lihat_saldo_callback
 from handlers.status_handler import cek_status_callback
+from handlers.admin_panel_handler import admin_panel_callback  # contoh handler admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,6 +73,7 @@ def main():
         dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(🛠 Admin Panel)$"), admin_panel_callback))  # menu admin
 
         # Fallback ke reply_menu_handler untuk semua menu
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
@@ -82,9 +84,11 @@ def main():
                 error_msg = f"Error: {context.error}"
                 logger.error(error_msg)
                 log_error(error_msg)
+                # Cek admin untuk reply_main_menu
+                is_admin = update.effective_user and update.effective_user.id in ADMIN_IDS
                 update.effective_message.reply_text(
                     "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.",
-                    reply_markup=reply_main_menu(is_admin=(update.effective_user and update.effective_user.id in ADMIN_IDS))
+                    reply_markup=reply_main_menu(is_admin=is_admin)
                 )
             except Exception as e:
                 logger.error(f"Error in error handler: {e}")
