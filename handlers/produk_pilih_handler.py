@@ -1,6 +1,6 @@
-from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ParseMode
 from telegram.ext import ConversationHandler
-from markup import reply_main_menu, produk_inline_keyboard
+from markup import reply_main_menu
 from produk import get_produk_list
 from saldo import get_saldo_user
 
@@ -10,23 +10,8 @@ def produk_pilih_callback(update, context):
     query = update.callback_query
     user = query.from_user
     data = query.data
+    query.answer()
 
-    try:
-        query.answer()
-    except Exception:
-        pass
-
-    # User klik tombol "Order Produk" di menu utama, atau callback "beli_produk"
-    if data == "beli_produk":
-        produk_list = get_produk_list()
-        query.edit_message_text(
-            "🛒 Pilih produk yang ingin dibeli:",
-            reply_markup=produk_inline_keyboard(produk_list)
-        )
-        context.user_data.clear()
-        return CHOOSING_PRODUK
-
-    # User memilih produk, callback: produk_static|index
     if data.startswith("produk_static|"):
         try:
             idx = int(data.split("|")[1])
@@ -58,7 +43,7 @@ def produk_pilih_callback(update, context):
                 parse_mode=ParseMode.HTML
             )
             return INPUT_TUJUAN
-        except (ValueError, IndexError) as e:
+        except Exception:
             query.edit_message_text("❌ Error memilih produk.", reply_markup=reply_main_menu(user.id))
             return ConversationHandler.END
 
