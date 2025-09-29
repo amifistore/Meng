@@ -34,12 +34,16 @@ def reply_menu_handler(update, context):
     text = update.message.text.strip().lower()
     admin = is_admin(user.id)
 
-    if text in ["order produk", "🛒 order produk"]:
-        from handlers.produk_daftar_handler import lihat_produk_callback
-        return lihat_produk_callback(update, context)
-    elif text in ["cek stok", "📦 cek stok"]:
+    # --- FIX: Panggil stock_akrab_callback dari reply keyboard ---
+    if text in ["cek stok", "📦 cek stok"]:
+        # Panggil fungsi stok dengan message, bukan callback_query
         from handlers.stock_handler import stock_akrab_callback
         return stock_akrab_callback(update, context)
+
+    # --- Menu lain tetap seperti biasa ---
+    elif text in ["order produk", "🛒 order produk"]:
+        from handlers.produk_daftar_handler import lihat_produk_callback
+        return lihat_produk_callback(update, context)
     elif text in ["top up saldo", "💳 top up saldo"]:
         from handlers.topup_handler import topup_callback
         return topup_callback(update, context)
