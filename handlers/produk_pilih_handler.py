@@ -21,6 +21,18 @@ def produk_pilih_callback(update, context):
 
         p = produk_list[idx]
         context.user_data["produk"] = p
+
+        # Patch: cek kuota produk sebelum lanjut
+        kuota = p.get('kuota', 0)
+        if kuota <= 0:
+            query.edit_message_text(
+                f"❌ Produk <b>{p['nama']}</b> kuotanya sudah habis!\n"
+                "Silakan pilih produk lain.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_main_menu(user.id)
+            )
+            return ConversationHandler.END
+
         saldo = get_saldo_user(user.id)
         if saldo < p['harga']:
             query.edit_message_text(
@@ -36,7 +48,7 @@ def produk_pilih_callback(update, context):
         query.edit_message_text(
             f"✅ Produk yang dipilih:\n"
             f"<b>{p['kode']}</b> - {p['nama']}\n"
-            f"Harga: Rp {p['harga']:,}\nStok: {p['kuota']}\n\n"
+            f"Harga: Rp {p['harga']:,}\nStok: <b>{kuota}</b>\n\n"
             "Silakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
             parse_mode=ParseMode.HTML
         )
