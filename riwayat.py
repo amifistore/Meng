@@ -155,3 +155,35 @@ def get_riwayat_user(user_id, limit=20):
     except Exception as e:
         print(f"Error get_riwayat_user: {e}")
         return []
+
+def get_user_riwayat(user_id, limit=20):
+    """
+    Ambil riwayat transaksi simple untuk user (untuk menu riwayat transaksi).
+    Return list of dict: [{ref_id, kode, tujuan, harga, tanggal, status}, ...]
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT ref_id, kode, tujuan, harga, tanggal, status
+            FROM riwayat
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+        """, (user_id, limit))
+        rows = cur.fetchall()
+        conn.close()
+        result = []
+        for row in rows:
+            result.append({
+                "ref_id": row[0],
+                "kode": row[1],
+                "tujuan": row[2],
+                "harga": row[3],
+                "tanggal": row[4],
+                "status": row[5]
+            })
+        return result
+    except Exception as e:
+        print(f"Error get_user_riwayat: {e}")
+        return []
