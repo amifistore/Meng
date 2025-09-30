@@ -72,8 +72,6 @@ def get_all_custom_produk():
 def parse_stock_from_provider():
     """Parse stock from provider with timeout and error handling"""
     try:
-        import requests
-        # Set timeout untuk menghindari hang
         stok_raw = cek_stock_akrab()
         
         if stok_raw is None:
@@ -110,53 +108,33 @@ def parse_stock_from_provider():
         return {}
 
 def get_list_stok_fixed():
-    """Get product list with fallback if provider fails"""
+    """Get product list - OVERRIDE ALL KUOTA TO 999"""
     try:
         slot_map = parse_stock_from_provider()
         custom_data = get_all_custom_produk()
         output = []
         
-        # Jika provider gagal, gunakan default kuota
-        if not slot_map:
-            logger.warning("Using default product list (provider failed)")
-            for produk in LIST_PRODUK_TETAP:
-                produk_copy = produk.copy()
-                kode = produk_copy["kode"].lower()
+        # OVERRIDE: Regardless of provider result, set all kuota to 999
+        for produk in LIST_PRODUK_TETAP:
+            kode = produk["kode"].lower()
+            produk_copy = produk.copy()
+            
+            # Apply custom settings jika ada
+            if kode in custom_data:
+                custom = custom_data[kode]
+                if custom.get("harga") is not None:
+                    try:
+                        produk_copy["harga"] = int(custom["harga"])
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid harga for {kode}: {custom.get('harga')}")
+                if custom.get("deskripsi"):
+                    produk_copy["deskripsi"] = custom["deskripsi"]
+            
+            # OVERRIDE: Always set kuota to 999 regardless of provider
+            produk_copy["kuota"] = 999
+            output.append(produk_copy)
                 
-                # Apply custom settings jika ada
-                if kode in custom_data:
-                    custom = custom_data[kode]
-                    if custom.get("harga") is not None:
-                        try:
-                            produk_copy["harga"] = int(custom["harga"])
-                        except (ValueError, TypeError):
-                            pass
-                    if custom.get("deskripsi"):
-                        produk_copy["deskripsi"] = custom["deskripsi"]
-                
-                # Set default kuota jika provider gagal
-                produk_copy["kuota"] = 999  # Default high number
-                output.append(produk_copy)
-        else:
-            # Provider berhasil, gunakan data real
-            for produk in LIST_PRODUK_TETAP:
-                kode = produk["kode"].lower()
-                produk_copy = produk.copy()
-                
-                if kode in custom_data:
-                    custom = custom_data[kode]
-                    if custom.get("harga") is not None:
-                        try:
-                            produk_copy["harga"] = int(custom["harga"])
-                        except (ValueError, TypeError):
-                            logger.warning(f"Invalid harga for {kode}: {custom.get('harga')}")
-                    if custom.get("deskripsi"):
-                        produk_copy["deskripsi"] = custom["deskripsi"]
-                
-                produk_copy["kuota"] = slot_map.get(kode, 0)
-                output.append(produk_copy)
-                
-        logger.info(f"Returning {len(output)} products")
+        logger.info(f"OVERRIDE ACTIVE: Returning {len(output)} products with kuota=999")
         return output
         
     except Exception as e:
@@ -170,14 +148,17 @@ def get_list_stok_fixed():
         return fallback_list
 
 def get_produk_list():
-    """Main function to get product list - dengan debug info"""
+    """Main function to get product list - TEMPORARY FIX FOR KUOTA ISSUE"""
     try:
         produk_list = get_list_stok_fixed()
-        logger.info(f"get_produk_list: Returning {len(produk_list)} products")
+        logger.info(f"TEMPORARY FIX: Returning {len(produk_list)} products with unlimited quota")
         
-        # Debug: print first few products
-        for i, produk in enumerate(produk_list[:3]):
-            logger.info(f"Product {i}: {produk['kode']} - {produk['nama']} - Kuota: {produk.get('kuota', 0)}")
+        # Debug: Verify all products have kuota = 999
+        zero_kuota_count = sum(1 for p in produk_list if p.get('kuota', 0) == 0)
+        if zero_kuota_count > 0:
+            logger.warning(f"WARNING: {zero_kuota_count} products still have kuota=0")
+        else:
+            logger.info("SUCCESS: All products have kuota=999")
             
         return produk_list
     except Exception as e:
@@ -195,7 +176,7 @@ def get_produk_by_kode(kode):
         return None
     try:
         kode = kode.lower()
-        all_products = get_produk_list()  # Use the main function
+        all_products = get_produk_list()
         for produk in all_products:
             if produk["kode"].lower() == kode:
                 return produk
