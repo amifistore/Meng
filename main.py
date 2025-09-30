@@ -19,8 +19,6 @@ from handlers.topup_handler import topup_callback
 from handlers.riwayat_handler import riwayat_callback
 from handlers.saldo_handler import lihat_saldo_callback
 from handlers.status_handler import cek_status_callback
-# Uncomment if you have admin panel handler:
-# from handlers.admin_panel_handler import admin_panel_callback
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,8 +72,7 @@ def main():
         dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
-        # Uncomment if you have handlers/admin_panel_handler.py:
-        # dp.add_handler(MessageHandler(Filters.regex("^(🛠 Admin Panel)$"), admin_panel_callback))
+        dp.add_handler(MessageHandler(Filters.regex("^(❓ Bantuan)$"), start))
 
         # Fallback ke reply_menu_handler untuk semua menu
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
