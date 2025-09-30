@@ -1,86 +1,69 @@
-import logging
 from telegram import ParseMode
 from markup import reply_main_menu
 from config import ADMIN_IDS
 
-def is_admin(user_id):
-    return user_id in ADMIN_IDS
-
 def start(update, context):
-    user = update.effective_user
+    user = update.message.from_user
+    is_admin = user.id in ADMIN_IDS
+    
+    welcome_text = (
+        "🤖 *SELAMAT DATANG DI BOT RESELLER* 🤖\n\n"
+        "Silakan pilih menu yang tersedia:\n\n"
+        "🛒 *Order Produk* - Beli produk digital\n"
+        "💳 *Top Up Saldo* - Isi saldo akun\n"
+        "📦 *Cek Stok* - Lihat stok produk\n"
+        "📋 *Riwayat Transaksi* - Lihat history order\n"
+        "💰 *Lihat Saldo* - Cek saldo Anda\n"
+        "🔍 *Cek Status* - Cek status order\n"
+        "❓ *Bantuan* - Panduan penggunaan\n"
+    )
+    
+    if is_admin:
+        welcome_text += "\n🛠 *Admin Panel* - Menu khusus admin"
+    
     update.message.reply_text(
-        "Selamat datang! Silakan pilih menu:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=reply_main_menu(is_admin(user.id))
+        welcome_text,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=reply_main_menu(is_admin=is_admin)
     )
 
 def cancel(update, context):
     user = update.effective_user
+    is_admin = user.id in ADMIN_IDS
     context.user_data.clear()
-    update.message.reply_text(
-        "❌ Operasi dibatalkan.",
-        reply_markup=reply_main_menu(is_admin(user.id))
-    )
-
-def reply_menu_handler(update, context):
-    user = update.effective_user
-    text = update.message.text.strip().lower()
-    admin = is_admin(user.id)
-
-    if "order produk" in text:
-        from handlers.produk_daftar_handler import lihat_produk_callback
-        return lihat_produk_callback(update, context)
-    elif "cek stok" in text:
-        from handlers.stock_handler import stock_akrab_callback
-        return stock_akrab_callback(update, context)
-    elif "top up saldo" in text:
-        from handlers.topup_handler import topup_callback
-        return topup_callback(update, context)
-    elif "riwayat transaksi" in text:
-        from handlers.riwayat_handler import riwayat_callback
-        return riwayat_callback(update, context)
-    elif "lihat saldo" in text:
-        from handlers.saldo_handler import lihat_saldo_callback
-        return lihat_saldo_callback(update, context)
-    elif "cek status" in text:
-        from handlers.status_handler import cek_status_callback
-        return cek_status_callback(update, context)
-    elif "bantuan" in text or "❓" in text or "?" in text:
-        msg = (
-            "❓ <b>Pusat Bantuan</b>\n\n"
-            "📖 <b>Cara Penggunaan:</b>\n"
-            "1. <b>Order Produk</b> - Pilih produk, masukkan nomor tujuan, konfirmasi\n"
-            "2. <b>Top Up Saldo</b> - Pilih nominal, konfirmasi, saldo otomatis bertambah\n"
-            "3. <b>Cek Stok</b> - Lihat ketersediaan produk\n"
-            "4. <b>Riwayat</b> - Lihat history transaksi\n\n"
-            "⚠️ <b>Jika mengalami kendala:</b>\n"
-            "• Pastikan saldo mencukupi\n"
-            "• Periksa nomor tujuan sudah benar\n"
-            "• Screenshoot error dan hubungi admin\n\n"
-            "📞 <b>Kontak Admin:</b> @admin"
+    
+    if update.callback_query:
+        update.callback_query.answer()
+        update.callback_query.edit_message_text(
+            "❌ Operasi dibatalkan.",
+            reply_markup=reply_main_menu(is_admin=is_admin)
         )
-        update.message.reply_text(msg, parse_mode="HTML", reply_markup=reply_main_menu(admin))
-        return
-    elif "admin panel" in text:
-        if admin:
-            update.message.reply_text("🛠 <b>Admin Panel</b>\nSilakan pilih menu admin:", parse_mode="HTML", reply_markup=reply_main_menu(True))
-        else:
-            update.message.reply_text("❌ Kamu bukan admin.", reply_markup=reply_main_menu(False))
-        return
     else:
         update.message.reply_text(
-            "Selamat datang! Silakan pilih menu:",
-            parse_mode="HTML",
-            reply_markup=reply_main_menu(admin)
+            "❌ Operasi dibatalkan.",
+            reply_markup=reply_main_menu(is_admin=is_admin)
         )
 
-def main_menu_callback(update, context):
-    query = update.callback_query
-    user = query.from_user
-    admin = is_admin(user.id)
-    query.answer()
-    query.edit_message_text(
-        "Silakan pilih menu:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=reply_main_menu(admin)
-    )
+def reply_menu_handler(update, context):
+    user = update.message.from_user
+    text = update.message.text
+    is_admin = user.id in ADMIN_IDS
+    
+    # Handle menu yang belum ada handler khusus
+    if text == "❓ Bantuan":
+        help_text = (
+            "📖 *PANDUAN PENGGUNAAN BOT*\n\n"
+            "1. 🛒 *Order Produk* - Pilih produk, input nomor tujuan, konfirmasi\n"
+            "2. 💳 *Top Up Saldo* - Transfer ke admin untuk isi saldo\n"
+            "3. 📦 *Cek Stok* - Lihat ketersediaan produk\n"
+            "4. 📋 *Riwayat* - History transaksi Anda\n"
+            "5. 💰 *Saldo* - Cek saldo akun\n"
+            "6. 🔍 *Status* - Cek status order terakhir\n\n"
+            "❓ Butuh bantuan? Hubungi admin."
+        )
+        update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
+    else:
+        update.message.reply_text(
+            "ℹ️ Pilih menu yang tersedia di keyboard bawah.",
+            reply_markup=reply_main_menu(is_admin=is_admin)
+        )
