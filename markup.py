@@ -15,8 +15,8 @@ def produk_inline_keyboard(produk_list):
     # Patch: tampilkan nama produk + stok/kuota
     keyboard = [
         [InlineKeyboardButton(
-            f"{p['nama']} (Stok: {p.get('kuota', 0)})",
-            callback_data=f"produk_static|{i}"
+            f"{p['nama']} (Stok: {p.get('kuota', 0)})",      # label tombol sesuai produk dan stok
+            callback_data=f"produk_static|{i}"                # index HARUS sama dengan produk_list
         )]
         for i, p in enumerate(produk_list)
     ]
