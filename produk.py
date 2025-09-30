@@ -70,8 +70,16 @@ def get_all_custom_produk():
         return {}
 
 def parse_stock_from_provider():
+    """Parse stock from provider with timeout and error handling"""
     try:
+        import requests
+        # Set timeout untuk menghindari hang
         stok_raw = cek_stock_akrab()
+        
+        if stok_raw is None:
+            logger.warning("Provider returned None")
+            return {}
+            
         if isinstance(stok_raw, dict):
             stok_data = stok_raw
         elif isinstance(stok_raw, str):
@@ -82,6 +90,7 @@ def parse_stock_from_provider():
         else:
             logger.warning(f"Unexpected stock format: {type(stok_raw)}")
             return {}
+            
         if "data" in stok_data and isinstance(stok_data["data"], list):
             slot_map = {}
             for item in stok_data["data"]:
@@ -93,6 +102,7 @@ def parse_stock_from_provider():
                     except (ValueError, TypeError):
                         sisa_slot = 0
                     slot_map[product_type] = sisa_slot
+            logger.info(f"Successfully parsed {len(slot_map)} products from provider")
             return slot_map
         return {}
     except Exception as e:
@@ -100,42 +110,96 @@ def parse_stock_from_provider():
         return {}
 
 def get_list_stok_fixed():
+    """Get product list with fallback if provider fails"""
     try:
         slot_map = parse_stock_from_provider()
         custom_data = get_all_custom_produk()
         output = []
-        for produk in LIST_PRODUK_TETAP:
-            kode = produk["kode"].lower()
-            produk_copy = produk.copy()
-            if kode in custom_data:
-                custom = custom_data[kode]
-                if custom.get("harga") is not None:
-                    try:
-                        produk_copy["harga"] = int(custom["harga"])
-                    except (ValueError, TypeError):
-                        logger.warning(f"Invalid harga for {kode}: {custom.get('harga')}")
-                if custom.get("deskripsi"):
-                    produk_copy["deskripsi"] = custom["deskripsi"]
-            produk_copy["sisa_slot"] = slot_map.get(kode, 0)
-            produk_copy["kuota"] = produk_copy["sisa_slot"]
-            output.append(produk_copy)
+        
+        # Jika provider gagal, gunakan default kuota
+        if not slot_map:
+            logger.warning("Using default product list (provider failed)")
+            for produk in LIST_PRODUK_TETAP:
+                produk_copy = produk.copy()
+                kode = produk_copy["kode"].lower()
+                
+                # Apply custom settings jika ada
+                if kode in custom_data:
+                    custom = custom_data[kode]
+                    if custom.get("harga") is not None:
+                        try:
+                            produk_copy["harga"] = int(custom["harga"])
+                        except (ValueError, TypeError):
+                            pass
+                    if custom.get("deskripsi"):
+                        produk_copy["deskripsi"] = custom["deskripsi"]
+                
+                # Set default kuota jika provider gagal
+                produk_copy["kuota"] = 999  # Default high number
+                output.append(produk_copy)
+        else:
+            # Provider berhasil, gunakan data real
+            for produk in LIST_PRODUK_TETAP:
+                kode = produk["kode"].lower()
+                produk_copy = produk.copy()
+                
+                if kode in custom_data:
+                    custom = custom_data[kode]
+                    if custom.get("harga") is not None:
+                        try:
+                            produk_copy["harga"] = int(custom["harga"])
+                        except (ValueError, TypeError):
+                            logger.warning(f"Invalid harga for {kode}: {custom.get('harga')}")
+                    if custom.get("deskripsi"):
+                        produk_copy["deskripsi"] = custom["deskripsi"]
+                
+                produk_copy["kuota"] = slot_map.get(kode, 0)
+                output.append(produk_copy)
+                
+        logger.info(f"Returning {len(output)} products")
         return output
+        
     except Exception as e:
-        logger.error(f"Error getting product list with stock: {e}")
-        return LIST_PRODUK_TETAP.copy()
+        logger.error(f"Critical error in get_list_stok_fixed: {e}")
+        # Fallback ke list produk tetap dengan kuota default
+        fallback_list = []
+        for produk in LIST_PRODUK_TETAP:
+            produk_copy = produk.copy()
+            produk_copy["kuota"] = 999
+            fallback_list.append(produk_copy)
+        return fallback_list
 
 def get_produk_list():
-    return get_list_stok_fixed()
+    """Main function to get product list - dengan debug info"""
+    try:
+        produk_list = get_list_stok_fixed()
+        logger.info(f"get_produk_list: Returning {len(produk_list)} products")
+        
+        # Debug: print first few products
+        for i, produk in enumerate(produk_list[:3]):
+            logger.info(f"Product {i}: {produk['kode']} - {produk['nama']} - Kuota: {produk.get('kuota', 0)}")
+            
+        return produk_list
+    except Exception as e:
+        logger.error(f"Error in get_produk_list: {e}")
+        # Ultimate fallback
+        fallback = []
+        for produk in LIST_PRODUK_TETAP:
+            p = produk.copy()
+            p["kuota"] = 999
+            fallback.append(p)
+        return fallback
 
 def get_produk_by_kode(kode):
     if not kode:
         return None
     try:
         kode = kode.lower()
-        all_products = get_list_stok_fixed()
+        all_products = get_produk_list()  # Use the main function
         for produk in all_products:
             if produk["kode"].lower() == kode:
                 return produk
+        logger.warning(f"Product not found: {kode}")
         return None
     except Exception as e:
         logger.error(f"Error getting product by kode {kode}: {e}")
