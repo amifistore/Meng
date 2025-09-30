@@ -3,6 +3,10 @@ from telegram.ext import ConversationHandler
 from markup import reply_main_menu
 from produk import get_produk_list
 from saldo import get_saldo_user
+from config import ADMIN_IDS
+import logging
+
+logger = logging.getLogger(__name__)
 
 CHOOSING_PRODUK, INPUT_TUJUAN = 0, 1
 
@@ -12,49 +16,87 @@ def produk_pilih_callback(update, context):
     data = query.data
     query.answer()
 
-    # DEBUG
-    print("DEBUG: produk_pilih_callback terpanggil")
-    print(f"DEBUG: Callback data={data}")
+    logger.info(f"User {user.first_name} memilih produk dengan callback: {data}")
 
     if data.startswith("produk_static|"):
-        idx = int(data.split("|")[1])
-        produk_list = get_produk_list()
-        print(f"DEBUG: produk_list len={len(produk_list)}, idx={idx}")
+        try:
+            idx = int(data.split("|")[1])
+            produk_list = get_produk_list()
+            
+            logger.info(f"Processing product selection - Index: {idx}, Total products: {len(produk_list)}")
 
-        if idx < 0 or idx >= len(produk_list):
-            query.edit_message_text("❌ Produk tidak valid.", reply_markup=reply_main_menu(user.id))
-            return ConversationHandler.END
+            # Validasi index
+            if idx < 0 or idx >= len(produk_list):
+                logger.error(f"Invalid product index: {idx}")
+                query.edit_message_text(
+                    "❌ Produk tidak valid atau tidak ditemukan.", 
+                    reply_markup=reply_main_menu(user.id in ADMIN_IDS)
+                )
+                return ConversationHandler.END
 
-        p = produk_list[idx]
-        context.user_data["produk"] = p
+            p = produk_list[idx]
+            
+            # Validasi struktur produk
+            if not all(key in p for key in ['kode', 'nama', 'harga']):
+                logger.error(f"Invalid product structure: {p}")
+                query.edit_message_text(
+                    "❌ Data produk tidak valid.", 
+                    reply_markup=reply_main_menu(user.id in ADMIN_IDS)
+                )
+                return ConversationHandler.END
+            
+            context.user_data["produk"] = p
+            logger.info(f"Product selected: {p['kode']} - {p['nama']} - Rp {p['harga']}")
 
-        # PATCH: Validasi kuota dihapus, order tetap lanjut walau stok 0
+            # Cek saldo user
+            saldo = get_saldo_user(user.id)
+            logger.info(f"User saldo: {saldo}")
+            
+            if saldo < p['harga']:
+                query.edit_message_text(
+                    f"❌ Saldo tidak cukup!\n\n"
+                    f"📦 Produk: <b>{p['nama']}</b>\n"
+                    f"💰 Harga: Rp {p['harga']:,}\n"
+                    f"💵 Saldo kamu: Rp {saldo:,}\n\n"
+                    "Silakan top up terlebih dahulu.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_main_menu(user.id in ADMIN_IDS)
+                )
+                return ConversationHandler.END
 
-        saldo = get_saldo_user(user.id)
-        if saldo < p['harga']:
+            # Success - lanjut ke input tujuan
             query.edit_message_text(
-                f"❌ Saldo kamu tidak cukup untuk order produk ini.\n"
-                f"Produk: <b>{p['nama']}</b>\nHarga: Rp {p['harga']:,}\n"
-                f"Saldo kamu: Rp {saldo:,}\n\n"
-                "Silakan top up dahulu sebelum order.",
-                parse_mode=ParseMode.HTML,
-                reply_markup=reply_main_menu(user.id)
+                f"✅ <b>PRODUK DIPILIH</b>\n\n"
+                f"📦 Produk: <b>{p['kode']} - {p['nama']}</b>\n"
+                f"💰 Harga: Rp {p['harga']:,}\n"
+                f"📊 Stok: <b>{p.get('kuota', 0)}</b>\n\n"
+                "📱 <b>Silakan input nomor tujuan:</b>\n"
+                "Contoh: <code>081234567890</code>\n\n"
+                "Ketik /batal untuk membatalkan.",
+                parse_mode=ParseMode.HTML
+            )
+            logger.info("Successfully processed product selection, moving to INPUT_TUJUAN")
+            return INPUT_TUJUAN
+
+        except Exception as e:
+            logger.error(f"Exception in produk_pilih_callback: {e}")
+            query.edit_message_text(
+                "❌ Terjadi kesalahan saat memilih produk.",
+                reply_markup=reply_main_menu(user.id in ADMIN_IDS)
             )
             return ConversationHandler.END
 
-        query.edit_message_text(
-            f"✅ Produk yang dipilih:\n"
-            f"<b>{p['kode']}</b> - {p['nama']}\n"
-            f"Harga: Rp {p['harga']:,}\nStok: <b>{p.get('kuota', 0)}</b>\n\n"
-            "Silakan input nomor tujuan:\n\nKetik /batal untuk membatalkan.",
-            parse_mode=ParseMode.HTML
-        )
-        return INPUT_TUJUAN
-
     elif data == "back_main":
-        query.edit_message_text("Kembali ke menu utama.", reply_markup=reply_main_menu(user.id))
+        query.edit_message_text(
+            "Kembali ke menu utama.", 
+            reply_markup=reply_main_menu(user.id in ADMIN_IDS)
+        )
         return ConversationHandler.END
 
     else:
-        query.edit_message_text("❌ Callback tidak dikenali.", reply_markup=reply_main_menu(user.id))
-        return ConversationHandler.END    
+        logger.warning(f"Unknown callback data: {data}")
+        query.edit_message_text(
+            "❌ Pilihan tidak valid.", 
+            reply_markup=reply_main_menu(user.id in ADMIN_IDS)
+        )
+        return ConversationHandler.END
