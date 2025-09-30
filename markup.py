@@ -12,11 +12,10 @@ def reply_main_menu(is_admin=False):
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 def produk_inline_keyboard(produk_list):
-    # Patch: tampilkan nama produk + stok/kuota
     keyboard = [
         [InlineKeyboardButton(
-            f"{p['nama']} (Stok: {p.get('kuota', 0)})",      # label tombol sesuai produk dan stok
-            callback_data=f"produk_static|{i}"                # index HARUS sama dengan produk_list
+            f"{p['nama']} (Stok: {p.get('kuota', 0)})",
+            callback_data=f"produk_static|{i}"
         )]
         for i, p in enumerate(produk_list)
     ]
@@ -37,5 +36,13 @@ def admin_edit_produk_keyboard(kode):
         [InlineKeyboardButton("Edit Deskripsi", callback_data=f"edit_deskripsi|{kode}")],
         [InlineKeyboardButton("Reset Custom", callback_data=f"resetcustom|{kode}")],
         [InlineKeyboardButton("⬅️ Kembali", callback_data=f"back_admin")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+# TAMBAHAN: Keyboard untuk konfirmasi order
+def konfirmasi_order_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("✅ Konfirmasi", callback_data="order_konfirmasi"),
+         InlineKeyboardButton("❌ Batal", callback_data="order_batal")]
     ]
     return InlineKeyboardMarkup(keyboard)
