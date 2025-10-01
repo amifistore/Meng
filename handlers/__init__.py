@@ -1,6 +1,4 @@
-# handlers/__init__.py
-
-# Conversation States - HARUS SAMA DI SEMUA FILE
-CHOOSING_PRODUK = 0
-INPUT_TUJUAN = 1
-KONFIRMASI = 2
+# Constants untuk state conversation
+CHOOSING_PRODUK = 1
+INPUT_TUJUAN = 2
+KONFIRMASI = 3
