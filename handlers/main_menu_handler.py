@@ -2,7 +2,7 @@ from telegram import ParseMode
 from markup import reply_main_menu
 from config import ADMIN_IDS
 
-def start(update, context):
+async def start(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.message.from_user
     is_admin = user.id in ADMIN_IDS
     
@@ -21,30 +21,30 @@ def start(update, context):
     if is_admin:
         welcome_text += "\n🛠 *Admin Panel* - Menu khusus admin"
     
-    update.message.reply_text(
+    await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
         welcome_text,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=reply_main_menu(is_admin=is_admin)
     )
 
-def cancel(update, context):
+async def cancel(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.effective_user
     is_admin = user.id in ADMIN_IDS
     context.user_data.clear()
     
     if update.callback_query:
-        update.callback_query.answer()
-        update.callback_query.edit_message_text(
+        await update.callback_query.answer()  # ✅ TAMBAHKAN AWAIT
+        await update.callback_query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Operasi dibatalkan.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
     else:
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Operasi dibatalkan.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
 
-def reply_menu_handler(update, context):
+async def reply_menu_handler(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.message.from_user
     text = update.message.text
     is_admin = user.id in ADMIN_IDS
@@ -61,9 +61,9 @@ def reply_menu_handler(update, context):
             "6. 🔍 *Status* - Cek status order terakhir\n\n"
             "❓ Butuh bantuan? Hubungi admin."
         )
-        update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)  # ✅ TAMBAHKAN AWAIT
     else:
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "ℹ️ Pilih menu yang tersedia di keyboard bawah.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
