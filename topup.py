@@ -1,4 +1,3 @@
-cat > topup.py << 'EOF'
 import sqlite3
 import logging
 
@@ -116,4 +115,3 @@ def get_riwayat_topup_user(user_id, limit=10):
     except Exception as e:
         logger.error(f"Error get_riwayat_topup_user: {e}")
         return []
-EOF
