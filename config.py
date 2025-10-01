@@ -17,5 +17,5 @@ WEBHOOK_URL = cfg.get("WEBHOOK_URL", "")
 WEBHOOK_PORT = cfg.get("WEBHOOK_PORT", 5000)
 
 # Tambahan untuk kompatibilitas dengan provider.py
-PROVIDER_API_KEY = API_KEY
-PROVIDER_BASE_URL = BASE_URL_AKRAB or BASE_URL
+PROVIDER_API_KEY = B66AB76B-A7AF-40BF-B037-1E58332E12EA
+PROVIDER_BASE_URL = https://panel.khfy-store.com/api_v2
