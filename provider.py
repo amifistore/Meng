@@ -1,85 +1,175 @@
 import requests
-import json
-import uuid
-from config import API_KEY, BASE_URL, BASE_URL_AKRAB
+import logging
+from config import PROVIDER_API_KEY, PROVIDER_BASE_URL
 
-def list_product():
-    try:
-        url = f"{BASE_URL}/list_product"
-        params = {"api_key": API_KEY}
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        # Sesuaikan dengan struktur response, jika ada "data"
-        return data.get("data", data) if isinstance(data, dict) else []
-    except Exception as e:
-        print("Error list_product:", e)
-        return []
+logger = logging.getLogger(__name__)
 
-def create_trx(produk, tujuan, reff_id=None):
+def get_produk_list():
+    """Ambil daftar produk dari provider"""
     try:
-        if not reff_id:
-            reff_id = str(uuid.uuid4())
-            
-        url = f"{BASE_URL}/trx"
+        url = f"{PROVIDER_BASE_URL}/api_v2/list_product"
         params = {
-            "produk": produk,
-            "tujuan": tujuan,
-            "reff_id": reff_id,  # ✅ DIPERBAIKI: reff_id bukan reff_id
-            "api_key": API_KEY
+            'api_key': PROVIDER_API_KEY
         }
         
-        print(f"[DEBUG] Request to provider: {params}")  # Log untuk debug
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
         
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
+        data = response.json()
         
-        # ✅ VALIDASI RESPONSE STRUCTURE
-        if not isinstance(data, dict):
-            raise ValueError("Response dari provider bukan format JSON yang valid")
+        if data.get('status') == 'success':
+            products = data.get('data', [])
+            logger.info(f"Successfully parsed {len(products)} products from provider")
             
-        # ✅ TAMBAHKAN FIELD YANG DIPERLUKAN
-        data["reff_id"] = reff_id  # Pastikan reff_id ada di response
+            # Format produk sesuai kebutuhan bot
+            formatted_products = []
+            for product in products:
+                formatted_products.append({
+                    'kode': product.get('kode', ''),
+                    'nama': product.get('nama', ''),
+                    'harga': int(product.get('harga', 0)),
+                    'kuota': int(product.get('kuota', 0)),
+                    'keterangan': product.get('keterangan', ''),
+                    'kategori': product.get('kategori', '')
+                })
+            
+            return formatted_products
+        else:
+            logger.error(f"Provider error: {data.get('message', 'Unknown error')}")
+            return []
+            
+    except Exception as e:
+        logger.error(f"Error getting product list: {e}")
+        # Fallback ke produk static jika provider down
+        return get_fallback_products()
+
+def create_trx(product_code, target, ref_id=None):
+    """Buat transaksi baru di provider"""
+    try:
+        url = f"{PROVIDER_BASE_URL}/api_v2/trx"
+        params = {
+            'produk': product_code,
+            'tujuan': target,
+            'reff_id': ref_id,
+            'api_key': PROVIDER_API_KEY
+        }
         
-        print(f"[DEBUG] Provider response: {data}")  # Log response
+        logger.info(f"Creating transaction: {product_code} for {target} with ref {ref_id}")
         
-        return data
+        response = requests.get(url, params=params, timeout=60)
+        response.raise_for_status()
         
+        data = response.json()
+        
+        if data.get('status') == 'success':
+            result = {
+                'success': True,
+                'trx_id': data.get('trxid', ''),
+                'ref_id': data.get('refid', ref_id),
+                'message': data.get('message', 'Transaction created successfully'),
+                'data': data.get('data', {})
+            }
+            logger.info(f"Transaction created successfully: {result}")
+            return result
+        else:
+            error_msg = data.get('message', 'Unknown error from provider')
+            logger.error(f"Provider transaction error: {error_msg}")
+            return {
+                'success': False,
+                'message': error_msg,
+                'trx_id': '',
+                'ref_id': ref_id
+            }
+            
     except requests.exceptions.Timeout:
-        return {"status": "error", "message": "Timeout: Provider tidak merespons", "reff_id": reff_id}
-    except requests.exceptions.ConnectionError:
-        return {"status": "error", "message": "Koneksi gagal ke provider", "reff_id": reff_id}
-    except requests.exceptions.HTTPError as e:
-        return {"status": "error", "message": f"HTTP Error: {e}", "reff_id": reff_id}
-    except Exception as e:
-        print(f"Error create_trx: {e}")
-        return {"status": "error", "message": str(e), "reff_id": reff_id}
-
-def history(refid):
-    try:
-        url = f"{BASE_URL}/history"
-        params = {
-            "api_key": API_KEY,
-            "refid": refid
+        error_msg = "Provider timeout - transaction pending"
+        logger.error(error_msg)
+        return {
+            'success': False,
+            'message': error_msg,
+            'trx_id': '',
+            'ref_id': ref_id
         }
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        return data
     except Exception as e:
-        print("Error history:", e)
-        return {"status": "error", "message": str(e)}
+        error_msg = f"Error creating transaction: {str(e)}"
+        logger.error(error_msg)
+        return {
+            'success': False,
+            'message': error_msg,
+            'trx_id': '',
+            'ref_id': ref_id
+        }
+
+def check_transaction_status(ref_id):
+    """Cek status transaksi by ref_id"""
+    try:
+        url = f"{PROVIDER_BASE_URL}/api_v2/history"
+        params = {
+            'api_key': PROVIDER_API_KEY,
+            'refid': ref_id
+        }
+        
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if data.get('status') == 'success':
+            return {
+                'success': True,
+                'status': data.get('data', {}).get('status', 'unknown'),
+                'message': data.get('message', ''),
+                'data': data.get('data', {})
+            }
+        else:
+            return {
+                'success': False,
+                'status': 'error',
+                'message': data.get('message', 'Unknown error')
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking transaction status: {e}")
+        return {
+            'success': False,
+            'status': 'error',
+            'message': str(e)
+        }
 
 def cek_stock_akrab():
+    """Cek stock akrab XL/Axis"""
     try:
-        url = f"{BASE_URL_AKRAB}/cek_stock_akrab"
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        try:
-            return resp.json()
-        except Exception:
-            return resp.text
+        url = f"{PROVIDER_BASE_URL}/api_v3/cek_stock_akrab"
+        
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        
+        data = response.json()
+        return data
+        
     except Exception as e:
-        print("Error cek_stock_akrab:", e)
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Error checking akrab stock: {e}")
+        return {'status': 'error', 'message': str(e)}
+
+def get_fallback_products():
+    """Fallback products jika provider down"""
+    logger.info("Using fallback products")
+    return [
+        {
+            'kode': 'BPAL1',
+            'nama': 'Bonus Akrab L - 1 hari',
+            'harga': 10000,
+            'kuota': 999,
+            'keterangan': 'Bonus Akrab L 1 hari',
+            'kategori': 'akrab'
+        },
+        {
+            'kode': 'BPAL11', 
+            'nama': 'Bonus Akrab L - 11 hari',
+            'harga': 25000,
+            'kuota': 999,
+            'keterangan': 'Bonus Akrab L 11 hari',
+            'kategori': 'akrab'
+        },
+        # Tambahkan produk lainnya...
+    ]
