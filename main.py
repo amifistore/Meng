@@ -1,4 +1,3 @@
-cat > main.py << 'EOF'
 #!/usr/bin/env python3
 import sys
 import time
@@ -38,7 +37,7 @@ def log_error(error_text):
 
 def main():
     print("=" * 60)
-    print("🤖 BOT STARTING - SYNC VERSION")
+    print("🤖 BOT STARTING - FULL FEATURE VERSION")
     print("=" * 60)
     
     try:
@@ -111,7 +110,7 @@ def main():
         time.sleep(1)
         
         print("🔄 Memulai polling...")
-        print("✅ Semua handler terpasang (Sync Version)")
+        print("✅ Semua handler terpasang")
         
         updater.start_polling(drop_pending_updates=True)
         
@@ -127,4 +126,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-EOF
