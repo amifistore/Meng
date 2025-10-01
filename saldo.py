@@ -1,4 +1,3 @@
-cat > saldo.py << 'EOF'
 import sqlite3
 import logging
 
@@ -126,4 +125,3 @@ def get_all_user_ids():
     except Exception as e:
         logger.error(f"Error get_all_user_ids: {e}")
         return []
-EOF
