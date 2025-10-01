@@ -4,15 +4,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Database path
 DB_PATH = 'bot_database.db'
 
 def get_connection():
-    """Dapatkan koneksi database"""
     return sqlite3.connect(DB_PATH)
 
 def get_riwayat_user(user_id, limit=10):
-    """Dapatkan riwayat transaksi user"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -43,7 +40,6 @@ def get_riwayat_user(user_id, limit=10):
         return []
 
 def tambah_riwayat(riwayat_data):
-    """Tambah riwayat transaksi"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
