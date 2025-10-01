@@ -16,6 +16,6 @@ QRIS_STATIS = cfg["QRIS_STATIS"]
 WEBHOOK_URL = cfg.get("WEBHOOK_URL", "")
 WEBHOOK_PORT = cfg.get("WEBHOOK_PORT", 5000)
 
-# Tambahan untuk kompatibilitas dengan provider.py
-PROVIDER_API_KEY = B66AB76B-A7AF-40BF-B037-1E58332E12EA
-PROVIDER_BASE_URL = https://panel.khfy-store.com/api_v2
+# Tambahan untuk kebutuhan import dari provider.py
+PROVIDER_API_KEY = "B66AB76B-A7AF-40BF-B037-1E58332E12EA",
+PROVIDER_BASE_URL = "https://panel.khfy-store.com/api_v3"
