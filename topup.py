@@ -1,178 +1,127 @@
+cat > topup.py << 'EOF'
 import sqlite3
+import logging
+from datetime import datetime
 
-DB_PATH = "db_bot.db"
+logger = logging.getLogger(__name__)
 
-def init_db_topup():
-    """Inisialisasi tabel topup jika belum ada"""
+# Database path
+DB_PATH = 'bot_database.db'
+
+def get_connection():
+    """Dapatkan koneksi database"""
+    return sqlite3.connect(DB_PATH)
+
+def simpan_topup(topup_id, user_id, nominal, status="pending"):
+    """Simpan data topup"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS topup (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                nominal INTEGER,
-                status TEXT,
-                tanggal TEXT,
-                admin_id INTEGER,
-                keterangan TEXT
-            )
-        """)
-        conn.commit()
-        conn.close()
-        print("✅ Tabel topup siap")
-    except Exception as e:
-        print(f"Error init_db_topup: {e}")
-
-def simpan_topup(user_id, nominal, status="pending", admin_id=None, keterangan=""):
-    """Simpan data topup ke tabel topup"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO topup (user_id, nominal, status, tanggal, admin_id, keterangan)
-            VALUES (?, ?, ?, datetime('now'), ?, ?)
-        """, (user_id, nominal, status, admin_id, keterangan))
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO topup (id, user_id, nominal, status)
+            VALUES (?, ?, ?, ?)
+        ''', (topup_id, user_id, nominal, status))
+        
         conn.commit()
         conn.close()
         return True
     except Exception as e:
-        print(f"Error simpan_topup: {e}")
+        logger.error(f"Error simpan_topup: {e}")
         return False
 
 def get_topup_by_id(topup_id):
-    """Ambil detail topup berdasarkan ID (untuk handler detail/topup admin)"""
+    """Dapatkan data topup by ID"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, user_id, nominal, status, tanggal, admin_id, keterangan
-            FROM topup WHERE id = ? LIMIT 1
-        """, (topup_id,))
-        row = cur.fetchone()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM topup WHERE id = ?", (topup_id,))
+        row = cursor.fetchone()
         conn.close()
+        
         if row:
             return {
-                "id": row[0],
-                "user_id": row[1],
-                "nominal": row[2],
-                "status": row[3],
-                "tanggal": row[4],
-                "admin_id": row[5],
-                "keterangan": row[6]
+                'id': row[0],
+                'user_id': row[1],
+                'nominal': row[2],
+                'status': row[3],
+                'admin_id': row[4],
+                'created_at': row[5]
             }
-        else:
-            return None
+        return None
     except Exception as e:
-        print(f"Error get_topup_by_id: {e}")
+        logger.error(f"Error get_topup_by_id: {e}")
         return None
 
-def get_riwayat_topup_user(user_id, limit=20):
-    """Ambil riwayat topup user, hasil list of dict (untuk handler riwayat)"""
+def update_status_topup(topup_id, status, admin_id=None):
+    """Update status topup"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, user_id, nominal, status, tanggal, admin_id, keterangan
-            FROM topup
-            WHERE user_id = ?
-            ORDER BY id DESC
-            LIMIT ?
-        """, (user_id, limit))
-        rows = cur.fetchall()
-        conn.close()
-        topups = []
-        for row in rows:
-            topups.append({
-                "id": row[0],
-                "user_id": row[1],
-                "nominal": row[2],
-                "status": row[3],
-                "tanggal": row[4],
-                "admin_id": row[5],
-                "keterangan": row[6]
-            })
-        return topups
-    except Exception as e:
-        print(f"Error get_riwayat_topup_user: {e}")
-        return []
-
-def update_status_topup(topup_id, status):
-    """
-    Update status topup pada tabel topup.
-    status: misal "pending", "approved", "rejected"
-    """
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("UPDATE topup SET status = ? WHERE id = ?", (status, topup_id))
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        if admin_id:
+            cursor.execute("UPDATE topup SET status = ?, admin_id = ? WHERE id = ?", 
+                         (status, admin_id, topup_id))
+        else:
+            cursor.execute("UPDATE topup SET status = ? WHERE id = ?", (status, topup_id))
+        
         conn.commit()
         conn.close()
         return True
     except Exception as e:
-        print(f"Error update_status_topup: {e}")
+        logger.error(f"Error update_status_topup: {e}")
         return False
 
-def get_topup_pending_list(limit=20):
-    """
-    Ambil daftar topup yang statusnya 'pending' untuk admin approve/reject.
-    Return: list of dict [{id, user_id, nominal, status, tanggal, admin_id, keterangan}, ...]
-    """
+def get_topup_pending_list():
+    """Dapatkan list topup pending"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, user_id, nominal, status, tanggal, admin_id, keterangan
-            FROM topup
-            WHERE status = 'pending'
-            ORDER BY tanggal DESC
-            LIMIT ?
-        """, (limit,))
-        rows = cur.fetchall()
-        conn.close()
-        result = []
-        for row in rows:
-            result.append({
-                "id": row[0],
-                "user_id": row[1],
-                "nominal": row[2],
-                "status": row[3],
-                "tanggal": row[4],
-                "admin_id": row[5],
-                "keterangan": row[6]
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM topup WHERE status = 'pending' ORDER BY created_at DESC")
+        
+        topup_list = []
+        for row in cursor.fetchall():
+            topup_list.append({
+                'id': row[0],
+                'user_id': row[1],
+                'nominal': row[2],
+                'status': row[3],
+                'admin_id': row[4],
+                'created_at': row[5]
             })
-        return result
+        
+        conn.close()
+        return topup_list
     except Exception as e:
-        print(f"Error get_topup_pending_list: {e}")
+        logger.error(f"Error get_topup_pending_list: {e}")
         return []
 
-def get_all_topup(limit=50):
-    """
-    Ambil seluruh data topup (untuk admin, laporan, dsb)
-    """
+def get_riwayat_topup_user(user_id, limit=10):
+    """Dapatkan riwayat topup user"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, user_id, nominal, status, tanggal, admin_id, keterangan
-            FROM topup
-            ORDER BY id DESC
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT * FROM topup 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC 
             LIMIT ?
-        """, (limit,))
-        rows = cur.fetchall()
-        conn.close()
-        result = []
-        for row in rows:
-            result.append({
-                "id": row[0],
-                "user_id": row[1],
-                "nominal": row[2],
-                "status": row[3],
-                "tanggal": row[4],
-                "admin_id": row[5],
-                "keterangan": row[6]
+        ''', (user_id, limit))
+        
+        riwayat = []
+        for row in cursor.fetchall():
+            riwayat.append({
+                'id': row[0],
+                'user_id': row[1],
+                'nominal': row[2],
+                'status': row[3],
+                'admin_id': row[4],
+                'tanggal': row[5]
             })
-        return result
+        
+        conn.close()
+        return riwayat
     except Exception as e:
-        print(f"Error get_all_topup: {e}")
+        logger.error(f"Error get_riwayat_topup_user: {e}")
         return []
+EOF
