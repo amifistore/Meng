@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def lihat_produk_callback(update, context):
+async def lihat_produk_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     try:
         user = update.message.from_user
         logger.info(f"User {user.first_name} (ID: {user.id}) memilih Order Produk")
@@ -17,7 +17,7 @@ def lihat_produk_callback(update, context):
         logger.info(f"Retrieved {len(produk_list)} products")
         
         if not produk_list:
-            update.message.reply_text(
+            await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                 "❌ Maaf, saat ini tidak ada produk yang tersedia.\n"
                 "Silakan coba lagi beberapa saat atau hubungi admin."
             )
@@ -27,7 +27,7 @@ def lihat_produk_callback(update, context):
         for i, produk in enumerate(produk_list[:2]):
             logger.info(f"Sample product {i}: {produk.get('kode')} - {produk.get('nama')} - Kuota: {produk.get('kuota', 'N/A')}")
         
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "🛒 <b>PILIH PRODUK</b>\n\n"
             "Silakan pilih produk yang ingin dibeli:\n"
             "ℹ️ Stok ditampilkan dalam tanda kurung",
@@ -38,7 +38,7 @@ def lihat_produk_callback(update, context):
         
     except Exception as e:
         logger.error(f"Error in lihat_produk_callback: {e}")
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Terjadi kesalahan saat menampilkan produk.\n"
             "Silakan coba lagi atau hubungi admin."
         )
