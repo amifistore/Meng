@@ -22,18 +22,6 @@ from handlers.saldo_handler import lihat_saldo_callback
 from handlers.status_handler import cek_status_callback
 from handlers.callback_handler import handle_all_callbacks
 
-# Coba import admin_edit_handler, jika tidak ada buat fallback
-try:
-    from handlers.admin_edit_produk_handler import admin_edit_produk_callback, admin_edit_harga_prompt, admin_edit_deskripsi_prompt, admin_edit_produk_step, ADMIN_EDIT
-    ADMIN_EDIT_AVAILABLE = True
-except ImportError:
-    try:
-        from handlers.admin_edit_handler import admin_edit_produk_callback, admin_edit_harga_prompt, admin_edit_deskripsi_prompt, admin_edit_produk_step, ADMIN_EDIT
-        ADMIN_EDIT_AVAILABLE = True
-    except ImportError:
-        ADMIN_EDIT_AVAILABLE = False
-        print("⚠️  Modul admin edit tidak tersedia, fitur admin edit dinonaktifkan")
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -57,10 +45,10 @@ def main():
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
 
-        # ==================== GLOBAL CALLBACK HANDLER ====================
+        # Global Callback Handler
         dp.add_handler(CallbackQueryHandler(handle_all_callbacks))
 
-        # ==================== CONVERSATION HANDLER UNTUK ORDER PRODUK ====================
+        # Conversation Handler untuk Order Produk
         order_conv_handler = ConversationHandler(
             entry_points=[MessageHandler(Filters.regex("^(🛒 Order Produk)$"), lihat_produk_callback)],
             states={
@@ -79,11 +67,10 @@ def main():
         )
         dp.add_handler(order_conv_handler)
 
-        # ==================== CONVERSATION HANDLER UNTUK TOPUP ====================
+        # Conversation Handler untuk Topup
         topup_conv_handler = ConversationHandler(
             entry_points=[
-                MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback),
-                CallbackQueryHandler(topup_callback, pattern="^topup_start$")
+                MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback)
             ],
             states={
                 TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)]
@@ -93,48 +80,30 @@ def main():
         )
         dp.add_handler(topup_conv_handler)
 
-        # ==================== BASIC COMMAND HANDLERS ====================
+        # Basic Command Handlers
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("help", start))
         dp.add_handler(CommandHandler("menu", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
 
-        # ==================== MESSAGE HANDLERS UNTUK MENU ====================
+        # Message Handlers untuk Menu
         dp.add_handler(MessageHandler(Filters.regex("^(📦 Cek Stok)$"), stock_akrab_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(❓ Bantuan)$"), start))
 
-        # ==================== ADMIN HANDLERS ====================
+        # Admin Handlers
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern="^topup_(approve|batal)\\|"))
         dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern="^riwayat_topup_admin$"))
         dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern="^admin_topup_detail\\|"))
         dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern="^semua_riwayat$"))
 
-        # ==================== ADMIN EDIT HANDLERS (jika tersedia) ====================
-        if ADMIN_EDIT_AVAILABLE:
-            admin_edit_conv_handler = ConversationHandler(
-                entry_points=[CallbackQueryHandler(admin_edit_produk_callback, pattern="^admin_edit_produk\\|")],
-                states={
-                    ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)]
-                },
-                fallbacks=[CommandHandler('cancel', cancel)],
-                allow_reentry=True,
-            )
-            dp.add_handler(admin_edit_conv_handler)
-            
-            dp.add_handler(CallbackQueryHandler(admin_edit_harga_prompt, pattern="^edit_harga\\|"))
-            dp.add_handler(CallbackQueryHandler(admin_edit_deskripsi_prompt, pattern="^edit_deskripsi\\|"))
-            print("✅ Admin Edit Features: ENABLED")
-        else:
-            print("⚠️  Admin Edit Features: DISABLED")
-
-        # ==================== FALLBACK HANDLER ====================
+        # Fallback Handler
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
 
-        # ==================== ERROR HANDLER ====================
+        # Error Handler
         def error_handler(update, context):
             try:
                 error_msg = f"Error: {context.error}"
@@ -152,7 +121,7 @@ def main():
         
         dp.add_error_handler(error_handler)
 
-        # ==================== START BOT ====================
+        # Start Bot
         updater.bot.delete_webhook()
         time.sleep(1)
         
@@ -168,17 +137,9 @@ def main():
         print("   ✅ Bantuan")
         print("   ✅ Admin Topup Management")
         print("   ✅ Global Callback Handler")
-        if ADMIN_EDIT_AVAILABLE:
-            print("   ✅ Admin Edit Produk")
-        else:
-            print("   ⚠️  Admin Edit Produk (Disabled)")
         print("")
         
-        updater.start_polling(
-            poll_interval=1.0,
-            timeout=30,
-            drop_pending_updates=True
-        )
+        updater.start_polling(drop_pending_updates=True)
         
         print("=" * 60)
         print("🎉 BOT BERHASIL DIJALANKAN!")
