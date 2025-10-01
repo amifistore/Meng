@@ -1,4 +1,3 @@
-cat > riwayat.py << 'EOF'
 import sqlite3
 import logging
 
@@ -63,4 +62,3 @@ def tambah_riwayat(riwayat_data):
     except Exception as e:
         logger.error(f"Error tambah_riwayat: {e}")
         return {"success": False, "error": str(e)}
-EOF
