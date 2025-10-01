@@ -1,3 +1,4 @@
+cat > main.py << 'EOF'
 #!/usr/bin/env python3
 import sys
 import time
@@ -57,7 +58,6 @@ def main():
         dp = updater.dispatcher
 
         # ==================== GLOBAL CALLBACK HANDLER ====================
-        # HARUS DITAMBAHKAN PERTAMA untuk menangani semua callback
         dp.add_handler(CallbackQueryHandler(handle_all_callbacks))
 
         # ==================== CONVERSATION HANDLER UNTUK ORDER PRODUK ====================
@@ -108,17 +108,13 @@ def main():
         dp.add_handler(MessageHandler(Filters.regex("^(❓ Bantuan)$"), start))
 
         # ==================== ADMIN HANDLERS ====================
-        # Handler untuk admin topup management
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern="^topup_(approve|batal)\\|"))
         dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern="^riwayat_topup_admin$"))
         dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern="^admin_topup_detail\\|"))
-        
-        # Handler untuk semua riwayat admin
         dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern="^semua_riwayat$"))
 
         # ==================== ADMIN EDIT HANDLERS (jika tersedia) ====================
         if ADMIN_EDIT_AVAILABLE:
-            # Conversation Handler untuk admin edit produk
             admin_edit_conv_handler = ConversationHandler(
                 entry_points=[CallbackQueryHandler(admin_edit_produk_callback, pattern="^admin_edit_produk\\|")],
                 states={
@@ -129,7 +125,6 @@ def main():
             )
             dp.add_handler(admin_edit_conv_handler)
             
-            # Handler untuk admin edit produk prompts
             dp.add_handler(CallbackQueryHandler(admin_edit_harga_prompt, pattern="^edit_harga\\|"))
             dp.add_handler(CallbackQueryHandler(admin_edit_deskripsi_prompt, pattern="^edit_deskripsi\\|"))
             print("✅ Admin Edit Features: ENABLED")
@@ -137,7 +132,6 @@ def main():
             print("⚠️  Admin Edit Features: DISABLED")
 
         # ==================== FALLBACK HANDLER ====================
-        # Handler untuk menangani semua text message yang tidak tertangani
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
 
         # ==================== ERROR HANDLER ====================
@@ -147,7 +141,6 @@ def main():
                 logger.error(error_msg)
                 log_error(error_msg)
                 
-                # Cek apakah update ada dan bisa reply
                 if update and update.effective_message:
                     is_admin = update.effective_user and update.effective_user.id in ADMIN_IDS
                     update.effective_message.reply_text(
@@ -166,8 +159,8 @@ def main():
         print("🔄 Memulai polling...")
         print("")
         print("📋 FITUR YANG AKTIF:")
-        print("   ✅ Order Produk (Conversation Handler)")
-        print("   ✅ Top Up Saldo (Conversation Handler)") 
+        print("   ✅ Order Produk")
+        print("   ✅ Top Up Saldo") 
         print("   ✅ Cek Stok")
         print("   ✅ Riwayat Transaksi")
         print("   ✅ Lihat Saldo")
@@ -184,14 +177,12 @@ def main():
         updater.start_polling(
             poll_interval=1.0,
             timeout=30,
-            drop_pending_updates=True,
-            allowed_updates=['message', 'callback_query']
+            drop_pending_updates=True
         )
         
         print("=" * 60)
         print("🎉 BOT BERHASIL DIJALANKAN!")
         print("🤖 Bot sedang berjalan...")
-        print("📝 Logs dapat dilihat di bot.log")
         print("⏹️  Tekan Ctrl+C untuk menghentikan bot")
         print("=" * 60)
         
@@ -206,3 +197,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+EOF
