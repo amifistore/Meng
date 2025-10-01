@@ -4,7 +4,7 @@ import time
 import logging
 
 from telegram.ext import (
-    Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler
+    Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ConversationHandler
 )
 
 from config import TOKEN, ADMIN_IDS
@@ -19,6 +19,9 @@ from handlers.topup_handler import topup_callback
 from handlers.riwayat_handler import riwayat_callback
 from handlers.saldo_handler import lihat_saldo_callback
 from handlers.status_handler import cek_status_callback
+
+# ✅ IMPORT HANDLER BARU
+from handlers.callback_handler import handle_all_callbacks
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,73 +42,71 @@ def main():
     print("🤖 BOT STARTING - FULL FEATURE VERSION")
     print("=" * 60)
     try:
-        updater = Updater(TOKEN, use_context=True)
-        dp = updater.dispatcher
+        # ✅ GUNAKAN Application BUKAN Updater (untuk versi terbaru)
+        application = Application.builder().token(TOKEN).build()
 
-        # ConversationHandler untuk order produk
+        # ✅ 1. TAMBAHKAN GLOBAL CALLBACK HANDLER PERTAMA - INI YANG PENTING!
+        application.add_handler(CallbackQueryHandler(handle_all_callbacks))
+
+        # ✅ 2. CONVERSATION HANDLER
         order_conv_handler = ConversationHandler(
-            entry_points=[MessageHandler(Filters.regex("^(🛒 Order Produk)$"), lihat_produk_callback)],
+            entry_points=[MessageHandler(filters.Regex("^(🛒 Order Produk)$"), lihat_produk_callback)],
             states={
                 CHOOSING_PRODUK: [
                     CallbackQueryHandler(produk_pilih_callback, pattern="^produk_static\\|"),
                     CallbackQueryHandler(produk_pilih_callback, pattern="^back_main$")
                 ],
-                INPUT_TUJUAN: [MessageHandler(Filters.text & ~Filters.command, handle_input_tujuan)],
+                INPUT_TUJUAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_input_tujuan)],
                 KONFIRMASI: [
                     CallbackQueryHandler(handle_konfirmasi, pattern="^(order_konfirmasi|order_batal)$"),
-                    MessageHandler(Filters.text & ~Filters.command, handle_konfirmasi)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_konfirmasi)
                 ]
             },
             fallbacks=[CommandHandler('cancel', cancel)],
             allow_reentry=True,
         )
-        dp.add_handler(order_conv_handler)
+        application.add_handler(order_conv_handler)
 
-        # Handler untuk menu lain
-        dp.add_handler(CommandHandler("start", start))
-        dp.add_handler(CommandHandler("help", start))
-        dp.add_handler(CommandHandler("menu", start))
-        dp.add_handler(CommandHandler("cancel", cancel))
-        dp.add_handler(CommandHandler("batal", cancel))
-        dp.add_handler(MessageHandler(Filters.regex("^(📦 Cek Stok)$"), stock_akrab_callback))
-        dp.add_handler(MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback))
-        dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
-        dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
-        dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
-        dp.add_handler(MessageHandler(Filters.regex("^(❓ Bantuan)$"), start))
+        # ✅ 3. HANDLER LAINNYA
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", start))
+        application.add_handler(CommandHandler("menu", start))
+        application.add_handler(CommandHandler("cancel", cancel))
+        application.add_handler(CommandHandler("batal", cancel))
+        application.add_handler(MessageHandler(filters.Regex("^(📦 Cek Stok)$"), stock_akrab_callback))
+        application.add_handler(MessageHandler(filters.Regex("^(💳 Top Up Saldo)$"), topup_callback))
+        application.add_handler(MessageHandler(filters.Regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
+        application.add_handler(MessageHandler(filters.Regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
+        application.add_handler(MessageHandler(filters.Regex("^(🔍 Cek Status)$"), cek_status_callback))
+        application.add_handler(MessageHandler(filters.Regex("^(❓ Bantuan)$"), start))
 
-        # Fallback ke reply_menu_handler untuk semua menu
-        dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
+        # Fallback handler
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_menu_handler))
 
         # Error handler
-        def error_handler(update, context):
+        async def error_handler(update, context):
             try:
                 error_msg = f"Error: {context.error}"
                 logger.error(error_msg)
                 log_error(error_msg)
-                # Cek admin untuk reply_main_menu
-                is_admin = update.effective_user and update.effective_user.id in ADMIN_IDS
-                update.effective_message.reply_text(
-                    "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.",
-                    reply_markup=reply_main_menu(is_admin=is_admin)
-                )
+                if update.effective_message:
+                    is_admin = update.effective_user and update.effective_user.id in ADMIN_IDS
+                    await update.effective_message.reply_text(
+                        "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.",
+                        reply_markup=reply_main_menu(is_admin=is_admin)
+                    )
             except Exception as e:
                 logger.error(f"Error in error handler: {e}")
-        dp.add_error_handler(error_handler)
+        application.add_error_handler(error_handler)
 
-        updater.bot.delete_webhook()
-        time.sleep(1)
         print("🔄 Memulai polling...")
-        updater.start_polling(
+        application.run_polling(
             poll_interval=1.0,
             timeout=30,
             drop_pending_updates=True,
             allowed_updates=['message', 'callback_query']
         )
-        print("=" * 60)
-        print("🎉 BOT BERHASIL DIJALANKAN!")
-        print("=" * 60)
-        updater.idle()
+        
     except Exception as e:
         logger.error(f"❌ Gagal menjalankan: {e}")
         log_error(f"❌ Gagal menjalankan: {e}")
