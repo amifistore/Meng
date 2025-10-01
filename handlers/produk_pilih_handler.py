@@ -11,13 +11,13 @@ from handlers import CHOOSING_PRODUK, INPUT_TUJUAN
 
 logger = logging.getLogger(__name__)
 
-def produk_pilih_callback(update, context):
+async def produk_pilih_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     user = query.from_user
     data = query.data
     
     # ANSWER CALLBACK QUERY FIRST - INI PENTING!
-    query.answer()
+    await query.answer()  # ✅ TAMBAHKAN AWAIT
 
     logger.info(f"🎯 produk_pilih_callback DIPANGGIL - User: {user.first_name}, Data: {data}")
 
@@ -31,7 +31,7 @@ def produk_pilih_callback(update, context):
             # Validasi index
             if idx < 0 or idx >= len(produk_list):
                 logger.error(f"❌ Invalid product index: {idx}")
-                query.edit_message_text(
+                await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
                     "❌ Produk tidak valid atau tidak ditemukan.", 
                     reply_markup=reply_main_menu(user.id in ADMIN_IDS)
                 )
@@ -43,7 +43,7 @@ def produk_pilih_callback(update, context):
             # Validasi struktur produk
             if not all(key in p for key in ['kode', 'nama', 'harga']):
                 logger.error(f"❌ Invalid product structure: {p}")
-                query.edit_message_text(
+                await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
                     "❌ Data produk tidak valid.", 
                     reply_markup=reply_main_menu(user.id in ADMIN_IDS)
                 )
@@ -57,7 +57,7 @@ def produk_pilih_callback(update, context):
             
             if saldo < p['harga']:
                 logger.warning(f"❌ Insufficient balance: {saldo} < {p['harga']}")
-                query.edit_message_text(
+                await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
                     f"❌ Saldo tidak cukup!\n\n"
                     f"📦 Produk: <b>{p['nama']}</b>\n"
                     f"💰 Harga: Rp {p['harga']:,}\n"
@@ -70,7 +70,7 @@ def produk_pilih_callback(update, context):
 
             # SUCCESS - lanjut ke input tujuan
             logger.info("🎯 Moving to INPUT_TUJUAN state")
-            query.edit_message_text(
+            await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
                 f"✅ <b>PRODUK DIPILIH</b>\n\n"
                 f"📦 Produk: <b>{p['kode']} - {p['nama']}</b>\n"
                 f"💰 Harga: Rp {p['harga']:,}\n"
@@ -84,7 +84,7 @@ def produk_pilih_callback(update, context):
 
         except Exception as e:
             logger.error(f"💥 Exception in produk_pilih_callback: {e}", exc_info=True)
-            query.edit_message_text(
+            await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
                 "❌ Terjadi kesalahan saat memilih produk.",
                 reply_markup=reply_main_menu(user.id in ADMIN_IDS)
             )
@@ -92,7 +92,7 @@ def produk_pilih_callback(update, context):
 
     elif data == "back_main":
         logger.info("⬅️ User kembali ke main menu")
-        query.edit_message_text(
+        await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
             "Kembali ke menu utama.", 
             reply_markup=reply_main_menu(user.id in ADMIN_IDS)
         )
@@ -100,7 +100,7 @@ def produk_pilih_callback(update, context):
 
     else:
         logger.warning(f"❓ Unknown callback data: {data}")
-        query.edit_message_text(
+        await query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Pilihan tidak valid.", 
             reply_markup=reply_main_menu(user.id in ADMIN_IDS)
         )
