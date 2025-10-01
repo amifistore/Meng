@@ -1,5 +1,5 @@
-cat > handlers/admin_edit_handler.py << 'EOF'
-from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+cat > handlers/admin_edit_produk_handler.py << 'EOF'
+from telegram import ParseMode
 from telegram.ext import ConversationHandler
 from markup import get_menu, admin_edit_produk_keyboard
 from produk import get_produk_by_kode, edit_produk, reset_produk_custom
