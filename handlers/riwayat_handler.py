@@ -7,9 +7,9 @@ from config import ADMIN_IDS
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-def riwayat_callback(update, context):
+async def riwayat_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.callback_query.from_user
-    update.callback_query.answer()
+    await update.callback_query.answer()  # ✅ TAMBAHKAN AWAIT
     riwayat_data = get_riwayat_saldo(user.id)
     topup_data = get_riwayat_topup_user(user.id)
     msg = ""
@@ -37,18 +37,18 @@ def riwayat_callback(update, context):
                 tanggal = tup.get("tanggal", "")
                 msg += f"{i}. ID: `{tup.get('id')}` | Rp {topup_nominal:,} | Status: {status} | {tanggal}\n"
     markup = reply_main_menu(is_admin=is_admin(user.id))
-    update.callback_query.edit_message_text(
+    await update.callback_query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
         msg,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=markup
     )
 
-def semua_riwayat_callback(update, context):
+async def semua_riwayat_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.callback_query.from_user
-    update.callback_query.answer()
+    await update.callback_query.answer()  # ✅ TAMBAHKAN AWAIT
     if not is_admin(user.id):
         markup = reply_main_menu(is_admin=is_admin(user.id))
-        update.callback_query.edit_message_text(
+        await update.callback_query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Akses ditolak.",
             reply_markup=markup
         )
@@ -86,8 +86,8 @@ def semua_riwayat_callback(update, context):
             msg += "\n"
         msg += f"💰 *Total Transaksi: Rp {total:,}*"
     markup = reply_main_menu(is_admin=is_admin(user.id))
-    update.callback_query.edit_message_text(
+    await update.callback_query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
         msg,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=markup
-            )
+    )
