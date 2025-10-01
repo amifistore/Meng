@@ -5,7 +5,7 @@ from produk import get_produk_by_kode, edit_produk, reset_produk_custom
 
 ADMIN_EDIT = 4
 
-def admin_edit_produk_callback(update, context):
+async def admin_edit_produk_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     user = query.from_user
     data = query.data
@@ -16,7 +16,7 @@ def admin_edit_produk_callback(update, context):
     produk = get_produk_by_kode(kode)
     if not produk:
         _, markup = get_menu(user.id)
-        query.edit_message_text("❌ Produk tidak ditemukan.", reply_markup=markup)
+        await query.edit_message_text("❌ Produk tidak ditemukan.", reply_markup=markup)  # ✅ TAMBAHKAN AWAIT
         return ConversationHandler.END
 
     msg = (
@@ -26,46 +26,48 @@ def admin_edit_produk_callback(update, context):
         f"Harga: <b>Rp {produk['harga']:,}</b>\n"
         f"Stok: {produk['kuota']}"
     )
-    query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=admin_edit_produk_keyboard(kode))
+    await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=admin_edit_produk_keyboard(kode))  # ✅ TAMBAHKAN AWAIT
     return ADMIN_EDIT
 
-def admin_edit_harga_prompt(update, context):
+async def admin_edit_harga_prompt(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     kode = query.data.split("|")[1]
     context.user_data["edit_kode"] = kode
     context.user_data["edit_field"] = "harga"
-    query.edit_message_text(f"Masukkan harga baru untuk <code>{kode}</code>:", parse_mode=ParseMode.HTML)
+    await query.edit_message_text(f"Masukkan harga baru untuk <code>{kode}</code>:", parse_mode=ParseMode.HTML)  # ✅ TAMBAHKAN AWAIT
     return ADMIN_EDIT
 
-def admin_edit_deskripsi_prompt(update, context):
+async def admin_edit_deskripsi_prompt(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     kode = query.data.split("|")[1]
     context.user_data["edit_kode"] = kode
     context.user_data["edit_field"] = "deskripsi"
-    query.edit_message_text(f"Masukkan deskripsi baru untuk <code>{kode}</code>:", parse_mode=ParseMode.HTML)
+    await query.edit_message_text(f"Masukkan deskripsi baru untuk <code>{kode}</code>:", parse_mode=ParseMode.HTML)  # ✅ TAMBAHKAN AWAIT
     return ADMIN_EDIT
 
-def admin_edit_produk_step(update, context):
+async def admin_edit_produk_step(update, context):  # ✅ TAMBAHKAN ASYNC
     kode = context.user_data.get("edit_kode")
     field = context.user_data.get("edit_field")
     value = update.message.text.strip() if update.message and update.message.text else ""
 
-    def get_reply_markup():
+    async def get_reply_markup():  # ✅ BUAT ASYNC JIKA PERLU
         _, markup = get_menu(getattr(update.effective_user, 'id', None))
         return markup
 
     if not kode or not field:
-        update.message.reply_text(
+        markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Kueri tidak valid. Silakan ulangi.",
-            reply_markup=get_reply_markup()
+            reply_markup=markup
         )
         return ConversationHandler.END
 
     p = get_produk_by_kode(kode)
     if not p:
-        update.message.reply_text(
+        markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Produk tidak ditemukan.",
-            reply_markup=get_reply_markup()
+            reply_markup=markup
         )
         return ConversationHandler.END
 
@@ -78,17 +80,18 @@ def admin_edit_produk_step(update, context):
                 old_harga = p.get("harga", 0)
                 edit_produk(kode, harga=harga)
                 p_new = get_produk_by_kode(kode)
-                update.message.reply_text(
+                markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+                await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                     f"✅ <b>Harga produk berhasil diupdate!</b>\n\n"
                     f"Produk: <b>{kode}</b> - {p_new.get('nama','-')}\n"
                     f"Harga lama: <s>Rp {old_harga:,}</s>\n"
                     f"Harga baru: <b>Rp {p_new.get('harga',0):,}</b>\n"
                     f"Deskripsi: {p_new.get('deskripsi','')}",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_reply_markup()
+                    reply_markup=markup
                 )
             except Exception as e:
-                update.message.reply_text(
+                await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                     f"❌ Format harga tidak valid: {str(e)}\nSilakan masukkan lagi:",
                     parse_mode=ParseMode.HTML
                 )
@@ -98,43 +101,47 @@ def admin_edit_produk_step(update, context):
             old_deskripsi = p.get("deskripsi","")
             edit_produk(kode, deskripsi=value)
             p_new = get_produk_by_kode(kode)
-            update.message.reply_text(
+            markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+            await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                 f"✅ <b>Deskripsi produk berhasil diupdate!</b>\n\n"
                 f"Produk: <b>{kode}</b> - {p_new.get('nama','-')}\n"
                 f"Deskripsi lama: <code>{old_deskripsi}</code>\n"
                 f"Deskripsi baru: <b>{p_new.get('deskripsi','')}</b>",
                 parse_mode=ParseMode.HTML,
-                reply_markup=get_reply_markup()
+                reply_markup=markup
             )
 
         elif field == "resetcustom":
             ok = reset_produk_custom(kode)
+            markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
             if ok:
-                update.message.reply_text(
+                await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                     f"✅ Sukses reset custom produk <b>{kode}</b> ke default.",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_reply_markup()
+                    reply_markup=markup
                 )
             else:
-                update.message.reply_text(
+                await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                     f"❌ Gagal reset custom produk <b>{kode}</b>.",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=get_reply_markup()
+                    reply_markup=markup
                 )
 
         else:
-            update.message.reply_text(
+            markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+            await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
                 "❌ Field tidak dikenal.",
-                reply_markup=get_reply_markup()
+                reply_markup=markup
             )
 
     except Exception as e:
-        update.message.reply_text(
+        markup = await get_reply_markup()  # ✅ TAMBAHKAN AWAIT JIKA ASYNC
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             f"❌ <b>Gagal update produk!</b>\n"
             f"Produk: <b>{kode}</b> - {p.get('nama','-')}\n"
             f"Error: {str(e)}",
             parse_mode=ParseMode.HTML,
-            reply_markup=get_reply_markup()
+            reply_markup=markup
         )
 
     finally:
