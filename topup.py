@@ -4,15 +4,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Database path
 DB_PATH = 'bot_database.db'
 
 def get_connection():
-    """Dapatkan koneksi database"""
     return sqlite3.connect(DB_PATH)
 
 def simpan_topup(topup_id, user_id, nominal, status="pending"):
-    """Simpan data topup"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -30,7 +27,6 @@ def simpan_topup(topup_id, user_id, nominal, status="pending"):
         return False
 
 def get_topup_by_id(topup_id):
-    """Dapatkan data topup by ID"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -53,7 +49,6 @@ def get_topup_by_id(topup_id):
         return None
 
 def update_status_topup(topup_id, status, admin_id=None):
-    """Update status topup"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -72,7 +67,6 @@ def update_status_topup(topup_id, status, admin_id=None):
         return False
 
 def get_topup_pending_list():
-    """Dapatkan list topup pending"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -96,7 +90,6 @@ def get_topup_pending_list():
         return []
 
 def get_riwayat_topup_user(user_id, limit=10):
-    """Dapatkan riwayat topup user"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
