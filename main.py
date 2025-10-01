@@ -20,7 +20,18 @@ from handlers.riwayat_handler import riwayat_callback, semua_riwayat_callback
 from handlers.saldo_handler import lihat_saldo_callback
 from handlers.status_handler import cek_status_callback
 from handlers.callback_handler import handle_all_callbacks
-from handlers.admin_edit_handler import admin_edit_produk_callback, admin_edit_harga_prompt, admin_edit_deskripsi_prompt, admin_edit_produk_step, ADMIN_EDIT
+
+# Coba import admin_edit_handler, jika tidak ada buat fallback
+try:
+    from handlers.admin_edit_produk_handler import admin_edit_produk_callback, admin_edit_harga_prompt, admin_edit_deskripsi_prompt, admin_edit_produk_step, ADMIN_EDIT
+    ADMIN_EDIT_AVAILABLE = True
+except ImportError:
+    try:
+        from handlers.admin_edit_handler import admin_edit_produk_callback, admin_edit_harga_prompt, admin_edit_deskripsi_prompt, admin_edit_produk_step, ADMIN_EDIT
+        ADMIN_EDIT_AVAILABLE = True
+    except ImportError:
+        ADMIN_EDIT_AVAILABLE = False
+        print("⚠️  Modul admin edit tidak tersedia, fitur admin edit dinonaktifkan")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +51,7 @@ def main():
     print("=" * 60)
     print("🤖 BOT STARTING - FULL FEATURE VERSION")
     print("=" * 60)
+    
     try:
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
@@ -81,17 +93,6 @@ def main():
         )
         dp.add_handler(topup_conv_handler)
 
-        # ==================== CONVERSATION HANDLER UNTUK ADMIN EDIT PRODUK ====================
-        admin_edit_conv_handler = ConversationHandler(
-            entry_points=[CallbackQueryHandler(admin_edit_produk_callback, pattern="^admin_edit_produk\\|")],
-            states={
-                ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)]
-            },
-            fallbacks=[CommandHandler('cancel', cancel)],
-            allow_reentry=True,
-        )
-        dp.add_handler(admin_edit_conv_handler)
-
         # ==================== BASIC COMMAND HANDLERS ====================
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("help", start))
@@ -112,12 +113,28 @@ def main():
         dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern="^riwayat_topup_admin$"))
         dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern="^admin_topup_detail\\|"))
         
-        # Handler untuk admin edit produk prompts
-        dp.add_handler(CallbackQueryHandler(admin_edit_harga_prompt, pattern="^edit_harga\\|"))
-        dp.add_handler(CallbackQueryHandler(admin_edit_deskripsi_prompt, pattern="^edit_deskripsi\\|"))
-        
         # Handler untuk semua riwayat admin
         dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern="^semua_riwayat$"))
+
+        # ==================== ADMIN EDIT HANDLERS (jika tersedia) ====================
+        if ADMIN_EDIT_AVAILABLE:
+            # Conversation Handler untuk admin edit produk
+            admin_edit_conv_handler = ConversationHandler(
+                entry_points=[CallbackQueryHandler(admin_edit_produk_callback, pattern="^admin_edit_produk\\|")],
+                states={
+                    ADMIN_EDIT: [MessageHandler(Filters.text & ~Filters.command, admin_edit_produk_step)]
+                },
+                fallbacks=[CommandHandler('cancel', cancel)],
+                allow_reentry=True,
+            )
+            dp.add_handler(admin_edit_conv_handler)
+            
+            # Handler untuk admin edit produk prompts
+            dp.add_handler(CallbackQueryHandler(admin_edit_harga_prompt, pattern="^edit_harga\\|"))
+            dp.add_handler(CallbackQueryHandler(admin_edit_deskripsi_prompt, pattern="^edit_deskripsi\\|"))
+            print("✅ Admin Edit Features: ENABLED")
+        else:
+            print("⚠️  Admin Edit Features: DISABLED")
 
         # ==================== FALLBACK HANDLER ====================
         # Handler untuk menangani semua text message yang tidak tertangani
@@ -147,26 +164,34 @@ def main():
         time.sleep(1)
         
         print("🔄 Memulai polling...")
-        print("📋 Fitur yang aktif:")
-        print("   ✅ Order Produk (Conversation)")
-        print("   ✅ Top Up Saldo (Conversation)") 
+        print("")
+        print("📋 FITUR YANG AKTIF:")
+        print("   ✅ Order Produk (Conversation Handler)")
+        print("   ✅ Top Up Saldo (Conversation Handler)") 
         print("   ✅ Cek Stok")
         print("   ✅ Riwayat Transaksi")
         print("   ✅ Lihat Saldo")
         print("   ✅ Cek Status")
-        print("   ✅ Admin Panel")
-        print("   ✅ Callback Handler Global")
+        print("   ✅ Bantuan")
+        print("   ✅ Admin Topup Management")
+        print("   ✅ Global Callback Handler")
+        if ADMIN_EDIT_AVAILABLE:
+            print("   ✅ Admin Edit Produk")
+        else:
+            print("   ⚠️  Admin Edit Produk (Disabled)")
+        print("")
         
         updater.start_polling(
             poll_interval=1.0,
             timeout=30,
             drop_pending_updates=True,
-            allowed_updates=['message', 'callback_query', 'inline_query']
+            allowed_updates=['message', 'callback_query']
         )
         
         print("=" * 60)
         print("🎉 BOT BERHASIL DIJALANKAN!")
         print("🤖 Bot sedang berjalan...")
+        print("📝 Logs dapat dilihat di bot.log")
         print("⏹️  Tekan Ctrl+C untuk menghentikan bot")
         print("=" * 60)
         
