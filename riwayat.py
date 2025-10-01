@@ -1,7 +1,6 @@
 cat > riwayat.py << 'EOF'
 import sqlite3
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
