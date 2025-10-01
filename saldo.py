@@ -49,6 +49,12 @@ def tambah_saldo_user(user_id, amount, tipe="topup", keterangan=""):
             last_update = CURRENT_TIMESTAMP
         ''', (user_id, amount))
         
+        # Simpan riwayat
+        cursor.execute('''
+            INSERT INTO riwayat_saldo (user_id, tipe, perubahan, keterangan)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, tipe, amount, keterangan))
+        
         conn.commit()
         conn.close()
         return {"success": True, "saldo_sekarang": get_saldo_user(user_id)}
@@ -66,6 +72,13 @@ def kurang_saldo_user(user_id, amount):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE saldo SET saldo = saldo - ? WHERE user_id = ?", (amount, user_id))
+        
+        # Simpan riwayat
+        cursor.execute('''
+            INSERT INTO riwayat_saldo (user_id, tipe, perubahan, keterangan)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, "order", -amount, "Pembelian produk"))
+        
         conn.commit()
         conn.close()
         
@@ -73,4 +86,57 @@ def kurang_saldo_user(user_id, amount):
     except Exception as e:
         logger.error(f"Error kurang_saldo_user: {e}")
         return {"success": False, "error": str(e)}
+
+def get_riwayat_saldo(user_id=None, limit=10, admin_mode=False):
+    """Dapatkan riwayat saldo"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        if admin_mode and user_id is None:
+            # Mode admin - semua riwayat
+            cursor.execute('''
+                SELECT tanggal, user_id, tipe, perubahan, keterangan 
+                FROM riwayat_saldo 
+                ORDER BY tanggal DESC 
+                LIMIT ?
+            ''', (limit,))
+        else:
+            # Mode user - riwayat user tertentu
+            cursor.execute('''
+                SELECT tanggal, user_id, tipe, perubahan, keterangan 
+                FROM riwayat_saldo 
+                WHERE user_id = ? 
+                ORDER BY tanggal DESC 
+                LIMIT ?
+            ''', (user_id, limit))
+        
+        riwayat = []
+        for row in cursor.fetchall():
+            riwayat.append({
+                "tanggal": row[0],
+                "user_id": row[1],
+                "tipe": row[2],
+                "perubahan": row[3],
+                "keterangan": row[4]
+            })
+        
+        conn.close()
+        return riwayat
+    except Exception as e:
+        logger.error(f"Error get_riwayat_saldo: {e}")
+        return []
+
+def get_all_user_ids():
+    """Dapatkan semua user_id yang ada"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT user_id FROM saldo")
+        user_ids = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return user_ids
+    except Exception as e:
+        logger.error(f"Error get_all_user_ids: {e}")
+        return []
 EOF
