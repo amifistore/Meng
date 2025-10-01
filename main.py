@@ -1,4 +1,3 @@
-cat > main.py << 'EOF'
 #!/usr/bin/env python3
 import sys
 import time
@@ -45,10 +44,8 @@ def main():
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
 
-        # Global Callback Handler
         dp.add_handler(CallbackQueryHandler(handle_all_callbacks))
 
-        # Conversation Handler untuk Order Produk
         order_conv_handler = ConversationHandler(
             entry_points=[MessageHandler(Filters.regex("^(🛒 Order Produk)$"), lihat_produk_callback)],
             states={
@@ -67,95 +64,62 @@ def main():
         )
         dp.add_handler(order_conv_handler)
 
-        # Conversation Handler untuk Topup
         topup_conv_handler = ConversationHandler(
-            entry_points=[
-                MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback)
-            ],
-            states={
-                TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)]
-            },
+            entry_points=[MessageHandler(Filters.regex("^(💳 Top Up Saldo)$"), topup_callback)],
+            states={TOPUP_NOMINAL: [MessageHandler(Filters.text & ~Filters.command, topup_nominal_step)]},
             fallbacks=[CommandHandler('cancel', cancel)],
             allow_reentry=True,
         )
         dp.add_handler(topup_conv_handler)
 
-        # Basic Command Handlers
         dp.add_handler(CommandHandler("start", start))
         dp.add_handler(CommandHandler("help", start))
         dp.add_handler(CommandHandler("menu", start))
         dp.add_handler(CommandHandler("cancel", cancel))
         dp.add_handler(CommandHandler("batal", cancel))
 
-        # Message Handlers untuk Menu
         dp.add_handler(MessageHandler(Filters.regex("^(📦 Cek Stok)$"), stock_akrab_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(📋 Riwayat Transaksi)$"), riwayat_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(💰 Lihat Saldo)$"), lihat_saldo_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(🔍 Cek Status)$"), cek_status_callback))
         dp.add_handler(MessageHandler(Filters.regex("^(❓ Bantuan)$"), start))
 
-        # Admin Handlers
         dp.add_handler(CallbackQueryHandler(admin_topup_callback, pattern="^topup_(approve|batal)\\|"))
         dp.add_handler(CallbackQueryHandler(admin_topup_list_callback, pattern="^riwayat_topup_admin$"))
         dp.add_handler(CallbackQueryHandler(admin_topup_detail_callback, pattern="^admin_topup_detail\\|"))
         dp.add_handler(CallbackQueryHandler(semua_riwayat_callback, pattern="^semua_riwayat$"))
 
-        # Fallback Handler
         dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_menu_handler))
 
-        # Error Handler
         def error_handler(update, context):
             try:
                 error_msg = f"Error: {context.error}"
                 logger.error(error_msg)
                 log_error(error_msg)
-                
                 if update and update.effective_message:
                     is_admin = update.effective_user and update.effective_user.id in ADMIN_IDS
-                    update.effective_message.reply_text(
-                        "❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.",
-                        reply_markup=reply_main_menu(is_admin=is_admin)
-                    )
+                    update.effective_message.reply_text("❌ Maaf, terjadi kesalahan sistem. Silakan coba lagi.", reply_markup=reply_main_menu(is_admin=is_admin))
             except Exception as e:
                 logger.error(f"Error in error handler: {e}")
-        
         dp.add_error_handler(error_handler)
 
-        # Start Bot
         updater.bot.delete_webhook()
         time.sleep(1)
         
         print("🔄 Memulai polling...")
-        print("")
-        print("📋 FITUR YANG AKTIF:")
-        print("   ✅ Order Produk")
-        print("   ✅ Top Up Saldo") 
-        print("   ✅ Cek Stok")
-        print("   ✅ Riwayat Transaksi")
-        print("   ✅ Lihat Saldo")
-        print("   ✅ Cek Status")
-        print("   ✅ Bantuan")
-        print("   ✅ Admin Topup Management")
-        print("   ✅ Global Callback Handler")
-        print("")
+        print("✅ Semua handler terpasang")
         
         updater.start_polling(drop_pending_updates=True)
         
-        print("=" * 60)
         print("🎉 BOT BERHASIL DIJALANKAN!")
         print("🤖 Bot sedang berjalan...")
-        print("⏹️  Tekan Ctrl+C untuk menghentikan bot")
-        print("=" * 60)
         
         updater.idle()
         
     except Exception as e:
         logger.error(f"❌ Gagal menjalankan bot: {e}")
         log_error(f"❌ Gagal menjalankan bot: {e}")
-        import traceback
-        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == '__main__':
     main()
-EOF
