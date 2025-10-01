@@ -91,3 +91,22 @@ async def semua_riwayat_callback(update, context):  # ✅ TAMBAHKAN ASYNC
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=markup
     )
+# Tambahkan function ini di riwayat.py
+async def update_order_status(ref_id, status, trx_id="", keterangan=""):
+    """Update status order berdasarkan ref_id (untuk webhook)"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE riwayat_order 
+            SET status = ?, trx_id = ?, keterangan = ?
+            WHERE ref_id = ? OR trx_id = ?
+        ''', (status, trx_id, keterangan, ref_id, trx_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error update_order_status: {e}")
+        return False
