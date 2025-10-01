@@ -4,15 +4,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Database path
 DB_PATH = 'bot_database.db'
 
 def get_connection():
-    """Dapatkan koneksi database"""
     return sqlite3.connect(DB_PATH)
 
 def get_saldo_user(user_id):
-    """Dapatkan saldo user"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -23,7 +20,6 @@ def get_saldo_user(user_id):
         if result:
             return result[0]
         else:
-            # Jika user belum ada, buat entry baru dengan saldo 0
             conn = get_connection()
             cursor = conn.cursor()
             cursor.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (?, 0)", (user_id,))
@@ -35,12 +31,10 @@ def get_saldo_user(user_id):
         return 0
 
 def tambah_saldo_user(user_id, amount, tipe="topup", keterangan=""):
-    """Tambah saldo user"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
         
-        # Update saldo
         cursor.execute('''
             INSERT INTO saldo (user_id, saldo) 
             VALUES (?, ?) 
@@ -49,7 +43,6 @@ def tambah_saldo_user(user_id, amount, tipe="topup", keterangan=""):
             last_update = CURRENT_TIMESTAMP
         ''', (user_id, amount))
         
-        # Simpan riwayat
         cursor.execute('''
             INSERT INTO riwayat_saldo (user_id, tipe, perubahan, keterangan)
             VALUES (?, ?, ?, ?)
@@ -63,7 +56,6 @@ def tambah_saldo_user(user_id, amount, tipe="topup", keterangan=""):
         return {"success": False, "error": str(e)}
 
 def kurang_saldo_user(user_id, amount):
-    """Kurangi saldo user"""
     try:
         saldo_sekarang = get_saldo_user(user_id)
         if saldo_sekarang < amount:
@@ -73,7 +65,6 @@ def kurang_saldo_user(user_id, amount):
         cursor = conn.cursor()
         cursor.execute("UPDATE saldo SET saldo = saldo - ? WHERE user_id = ?", (amount, user_id))
         
-        # Simpan riwayat
         cursor.execute('''
             INSERT INTO riwayat_saldo (user_id, tipe, perubahan, keterangan)
             VALUES (?, ?, ?, ?)
@@ -88,13 +79,11 @@ def kurang_saldo_user(user_id, amount):
         return {"success": False, "error": str(e)}
 
 def get_riwayat_saldo(user_id=None, limit=10, admin_mode=False):
-    """Dapatkan riwayat saldo"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
         
         if admin_mode and user_id is None:
-            # Mode admin - semua riwayat
             cursor.execute('''
                 SELECT tanggal, user_id, tipe, perubahan, keterangan 
                 FROM riwayat_saldo 
@@ -102,7 +91,6 @@ def get_riwayat_saldo(user_id=None, limit=10, admin_mode=False):
                 LIMIT ?
             ''', (limit,))
         else:
-            # Mode user - riwayat user tertentu
             cursor.execute('''
                 SELECT tanggal, user_id, tipe, perubahan, keterangan 
                 FROM riwayat_saldo 
@@ -128,7 +116,6 @@ def get_riwayat_saldo(user_id=None, limit=10, admin_mode=False):
         return []
 
 def get_all_user_ids():
-    """Dapatkan semua user_id yang ada"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
