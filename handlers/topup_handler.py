@@ -51,32 +51,41 @@ def make_qris_image(qris_base64, template_path=QRIS_TEMPLATE_PATH):
         log_topup_error(f"make_qris_image error: {e}")
         return None
 
-def safe_edit_message(query, new_text, reply_markup=None, parse_mode=None):
+async def safe_edit_message(query, new_text, reply_markup=None, parse_mode=None):  # ✅ TAMBAHKAN ASYNC
     try:
         prev_text = query.message.text if query.message and query.message.text else ""
         prev_markup = query.message.reply_markup if query.message else None
         if prev_text == new_text and str(prev_markup) == str(reply_markup):
             return
-        query.edit_message_text(new_text, reply_markup=reply_markup, parse_mode=parse_mode)
+        await query.edit_message_text(new_text, reply_markup=reply_markup, parse_mode=parse_mode)  # ✅ TAMBAHKAN AWAIT
     except Exception as e:
         if "Message is not modified" in str(e):
             pass
         else:
             log_topup_error(f"safe_edit_message error: {str(e)}")
 
-def topup_callback(update, context):
-    query = update.callback_query
-    if query: query.answer()
+async def topup_callback(update, context):  # ✅ TAMBAHKAN ASYNC
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()  # ✅ TAMBAHKAN AWAIT
+    else:
+        query = None
+    
     unique = int(time.time())
     new_text = (
         "💸 Silakan masukkan nominal Top Up (minimal 10.000):\n\n"
         "Contoh: <code>25000</code>\n"
         f"Kode unik: <code>{unique}</code>"
     )
-    safe_edit_message(query, new_text, parse_mode="HTML")
+    
+    if query:
+        await safe_edit_message(query, new_text, parse_mode="HTML")
+    else:
+        await update.message.reply_text(new_text, parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
+    
     return TOPUP_NOMINAL
 
-def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id):
+async def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id):  # ✅ TAMBAHKAN ASYNC
     try:
         text = (
             f"💸 <b>TOP UP BARU</b>\n"
@@ -96,7 +105,7 @@ def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id)
             ]
         ]
         for admin_id in ADMIN_IDS:
-            context.bot.send_message(
+            await context.bot.send_message(  # ✅ TAMBAHKAN AWAIT
                 chat_id=admin_id,
                 text=text,
                 reply_markup=InlineKeyboardMarkup(buttons),
@@ -105,25 +114,25 @@ def notify_admin_topup(context, user, nominal, total_bayar, kode_unik, topup_id)
     except Exception as e:
         log_topup_error(f"notify_admin_topup error: {e}")
 
-def topup_nominal_step(update, context):
+async def topup_nominal_step(update, context):  # ✅ TAMBAHKAN ASYNC
     try:
         text = ""
         if update.message and update.message.text:
             text = update.message.text.strip()
         else:
             log_topup_error("topup_nominal_step: update.message or text is None")
-            update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")
+            await update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")  # ✅ TAMBAHKAN AWAIT
             return TOPUP_NOMINAL
 
         try:
             nominal = int(text.replace(".", "").replace(",", ""))
         except Exception as ve:
             log_topup_error(f"Nominal format error: {str(ve)}")
-            update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")
+            await update.message.reply_text("❌ Format nominal tidak valid. Masukkan angka:")  # ✅ TAMBAHKAN AWAIT
             return TOPUP_NOMINAL
 
         if nominal < 10000:
-            update.message.reply_text("❌ Nominal minimal 10.000. Masukkan kembali nominal:")
+            await update.message.reply_text("❌ Nominal minimal 10.000. Masukkan kembali nominal:")  # ✅ TAMBAHKAN AWAIT
             return TOPUP_NOMINAL
 
         total_bayar, kode_unik = get_nominal_unik(nominal)
@@ -131,12 +140,12 @@ def topup_nominal_step(update, context):
             resp = generate_qris(total_bayar, QRIS_STATIS)
         except Exception as e:
             log_topup_error(f"generate_qris error: {str(e)}")
-            update.message.reply_text(f"❌ Error generate QRIS: {str(e)}")
+            await update.message.reply_text(f"❌ Error generate QRIS: {str(e)}")  # ✅ TAMBAHKAN AWAIT
             return ConversationHandler.END
 
         if resp.get("status") != "success":
             log_topup_error(f"QRIS failed: {resp}")
-            update.message.reply_text(f"❌ Gagal generate QRIS: {resp.get('message', 'Unknown error')}")
+            await update.message.reply_text(f"❌ Gagal generate QRIS: {resp.get('message', 'Unknown error')}")  # ✅ TAMBAHKAN AWAIT
             return ConversationHandler.END
 
         qris_base64 = resp.get("qris_base64")
@@ -151,29 +160,29 @@ def topup_nominal_step(update, context):
             try:
                 img = make_qris_image(qris_base64)
                 if img:
-                    update.message.reply_photo(photo=img, caption=msg, parse_mode="HTML")
+                    await update.message.reply_photo(photo=img, caption=msg, parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
                 else:
                     try:
                         qr_bytes = base64.b64decode(qris_base64)
                         bio = BytesIO(qr_bytes)
                         bio.name = "qris.png"
                         bio.seek(0)
-                        update.message.reply_photo(photo=bio, caption=msg, parse_mode="HTML")
+                        await update.message.reply_photo(photo=bio, caption=msg, parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
                     except Exception as e:
                         log_topup_error(f"Error decode QRIS: {str(e)}")
-                        update.message.reply_text(f"❌ Error decode QRIS: {str(e)}")
+                        await update.message.reply_text(f"❌ Error decode QRIS: {str(e)}")  # ✅ TAMBAHKAN AWAIT
             except Exception as e:
                 log_topup_error(f"Send QRIS image error: {str(e)}")
-                update.message.reply_text(f"❌ Error kirim gambar QRIS: {str(e)}")
+                await update.message.reply_text(f"❌ Error kirim gambar QRIS: {str(e)}")  # ✅ TAMBAHKAN AWAIT
         else:
             log_topup_error("QRIS base64 kosong")
-            update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")
+            await update.message.reply_text(msg + "\n❌ QRIS tidak tersedia", parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
 
         # === Simpan ke database ===
         topup_id = str(uuid.uuid4())
         simpan_topup(topup_id, update.effective_user.id, nominal, status="pending")
         # === NOTIFIKASI ADMIN + TOMBOL ===
-        notify_admin_topup(
+        await notify_admin_topup(  # ✅ TAMBAHKAN AWAIT
             context,
             update.effective_user,
             nominal,
@@ -185,14 +194,14 @@ def topup_nominal_step(update, context):
     except Exception as e:
         log_topup_error(f"topup_nominal_step error: {str(e)}")
         try:
-            update.message.reply_text(f"❌ Error: {str(e)}")
+            await update.message.reply_text(f"❌ Error: {str(e)}")  # ✅ TAMBAHKAN AWAIT
         except Exception:
             pass
     return ConversationHandler.END
 
-def admin_topup_callback(update, context):
+async def admin_topup_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
-    query.answer()
+    await query.answer()  # ✅ TAMBAHKAN AWAIT
     data = query.data
     admin_id = query.from_user.id
 
@@ -200,11 +209,11 @@ def admin_topup_callback(update, context):
         _, topup_id, user_id = data.split("|")
         t = get_topup_by_id(topup_id)
         if t and t['status'] == "pending":
-            tambah_saldo_user(t['user_id'], t['nominal'], tipe="topup", keterangan=f"TOPUP {topup_id}")
+            await tambah_saldo_user(t['user_id'], t['nominal'], tipe="topup", keterangan=f"TOPUP {topup_id}")  # ✅ TAMBAHKAN AWAIT
             update_status_topup(topup_id, "approved", admin_id)
-            query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")
+            await query.edit_message_text("✅ Top Up telah di-approve admin.", parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
             try:
-                context.bot.send_message(
+                await context.bot.send_message(  # ✅ TAMBAHKAN AWAIT
                     chat_id=int(user_id),
                     text=f"✅ Top Up kamu telah diapprove admin! Saldo masuk Rp {t['nominal']:,}.",
                     parse_mode="HTML"
@@ -212,16 +221,16 @@ def admin_topup_callback(update, context):
             except Exception as e:
                 log_topup_error(f"ERROR kirim ke user: {e}")
         else:
-            query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")
+            await query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
 
     elif data.startswith("topup_batal|"):
         _, topup_id, user_id = data.split("|")
         t = get_topup_by_id(topup_id)
         if t and t['status'] == "pending":
             update_status_topup(topup_id, "canceled", admin_id)
-            query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")
+            await query.edit_message_text("❌ Top Up dibatalkan oleh admin.", parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
             try:
-                context.bot.send_message(
+                await context.bot.send_message(  # ✅ TAMBAHKAN AWAIT
                     chat_id=int(user_id),
                     text=f"❌ Top Up kamu dibatalkan admin. Silakan ulangi jika ingin coba lagi.",
                     parse_mode="HTML"
@@ -229,21 +238,21 @@ def admin_topup_callback(update, context):
             except Exception as e:
                 log_topup_error(f"ERROR kirim ke user: {e}")
         else:
-            query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")
+            await query.edit_message_text("❌ Top Up tidak ditemukan atau sudah diproses.", parse_mode="HTML")  # ✅ TAMBAHKAN AWAIT
 
-def admin_topup_list_callback(update, context):
+async def admin_topup_list_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     user = query.from_user
-    query.answer()
+    await query.answer()  # ✅ TAMBAHKAN AWAIT
 
     if user.id not in ADMIN_IDS:
-        query.edit_message_text("❌ Kamu bukan admin.")
+        await query.edit_message_text("❌ Kamu bukan admin.")  # ✅ TAMBAHKAN AWAIT
         return
 
     topup_list = get_topup_pending_list()
 
     if not topup_list:
-        query.edit_message_text("Tidak ada transaksi top up pending.")
+        await query.edit_message_text("Tidak ada transaksi top up pending.")  # ✅ TAMBAHKAN AWAIT
         return
 
     msg = "<b>🧾 Daftar Pending Top Up User:</b>\nPilih transaksi untuk approve/batal.\n\n"
@@ -252,14 +261,14 @@ def admin_topup_list_callback(update, context):
         label = f"{t.get('id','-')} | Rp {t.get('nominal',0):,} | UserID: {t.get('user_id','-')}"
         keyboard.append([InlineKeyboardButton(label, callback_data=f"admin_topup_detail|{t['id']}")])
     keyboard.append([InlineKeyboardButton("⬅️ Kembali", callback_data="back_admin")])
-    query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))  # ✅ TAMBAHKAN AWAIT
 
-def admin_topup_detail_callback(update, context):
+async def admin_topup_detail_callback(update, context):  # ✅ TAMBAHKAN ASYNC
     query = update.callback_query
     topup_id = query.data.split("|")[1]
     t = get_topup_by_id(topup_id)
     if not t:
-        query.edit_message_text("❌ Top up tidak ditemukan.")
+        await query.edit_message_text("❌ Top up tidak ditemukan.")  # ✅ TAMBAHKAN AWAIT
         return
     msg = (
         f"<b>💸 Detail Top Up</b>\n"
@@ -275,4 +284,4 @@ def admin_topup_detail_callback(update, context):
          InlineKeyboardButton("❌ Cancel", callback_data=f"topup_batal|{topup_id}|{t.get('user_id')}")],
         [InlineKeyboardButton("⬅️ Kembali", callback_data="riwayat_topup_admin")]
     ]
-    query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))  # ✅ TAMBAHKAN AWAIT
