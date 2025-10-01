@@ -1,3 +1,4 @@
+cat > handlers/callback_handler.py << 'EOF'
 import logging
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -94,3 +95,4 @@ def handle_all_callbacks(update, context):
         logger.error(f"💥 Error in callback handler: {e}")
         if update and update.callback_query:
             update.callback_query.answer("Error processing request", show_alert=True)
+EOF
