@@ -15,3 +15,7 @@ TOPUP_FILE = 'topup_user.json'
 QRIS_STATIS = cfg["QRIS_STATIS"]
 WEBHOOK_URL = cfg.get("WEBHOOK_URL", "")
 WEBHOOK_PORT = cfg.get("WEBHOOK_PORT", 5000)
+
+# Tambahan untuk kompatibilitas dengan provider.py
+PROVIDER_API_KEY = API_KEY
+PROVIDER_BASE_URL = BASE_URL_AKRAB or BASE_URL
