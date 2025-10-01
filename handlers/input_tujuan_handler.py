@@ -11,7 +11,7 @@ from handlers import INPUT_TUJUAN, KONFIRMASI
 import logging
 logger = logging.getLogger(__name__)
 
-def handle_input_tujuan(update, context):
+async def handle_input_tujuan(update, context):  # ✅ TAMBAHKAN ASYNC
     user = update.message.from_user
     text = update.message.text.strip()
     is_admin = user.id in ADMIN_IDS
@@ -21,12 +21,12 @@ def handle_input_tujuan(update, context):
     if text == '/batal':
         logger.info("❌ User membatalkan order")
         context.user_data.clear()
-        update.message.reply_text("❌ Order dibatalkan.", reply_markup=reply_main_menu(is_admin=is_admin))
+        await update.message.reply_text("❌ Order dibatalkan.", reply_markup=reply_main_menu(is_admin=is_admin))  # ✅ TAMBAHKAN AWAIT
         return ConversationHandler.END
         
     if not text.isdigit() or len(text) < 10 or len(text) > 15:
         logger.warning(f"❌ Invalid phone number format: {text}")
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             "❌ Format nomor tidak valid! Harus angka minimal 10 digit dan maksimal 15 digit.\n"
             "Contoh: 081234567890\n\n"
             "Silakan input ulang atau ketik /batal untuk membatalkan."
@@ -36,7 +36,7 @@ def handle_input_tujuan(update, context):
     produk = context.user_data.get("produk")
     if not produk:
         logger.error("❌ No product found in user_data - session expired")
-        update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=reply_main_menu(is_admin=is_admin))
+        await update.message.reply_text("❌ Sesi expired. Silakan mulai order lagi.", reply_markup=reply_main_menu(is_admin=is_admin))  # ✅ TAMBAHKAN AWAIT
         return ConversationHandler.END
 
     # Cek saldo user
@@ -45,7 +45,7 @@ def handle_input_tujuan(update, context):
     
     if saldo < produk['harga']:
         logger.warning(f"❌ Insufficient balance in final check: {saldo} < {produk['harga']}")
-        update.message.reply_text(
+        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
             f"❌ Saldo tidak cukup!\n"
             f"Produk: {produk['nama']} - Rp {produk['harga']:,}\n"
             f"Saldo kamu: Rp {saldo:,}\n\n"
@@ -59,7 +59,7 @@ def handle_input_tujuan(update, context):
     
     logger.info(f"✅ Ready for confirmation - Ref: {context.user_data['ref_id']}, Tujuan: {text}")
     
-    update.message.reply_text(
+    await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
         f"📋 <b>KONFIRMASI ORDER</b>\n\n"
         f"🆔 Ref ID: <code>{context.user_data['ref_id']}</code>\n"
         f"📦 Produk: <b>{produk['nama']}</b>\n"
