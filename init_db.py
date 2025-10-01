@@ -1,13 +1,10 @@
-cat > init_complete_database.py << 'EOF'
-#!/usr/bin/env python3
+cat > init_db.py << 'EOF'
 import sqlite3
 import os
 
-def init_complete_database():
-    """Inisialisasi database lengkap dengan semua tabel"""
+def init_db():
     db_path = 'bot_database.db'
     
-    # Hapus database lama jika ada
     if os.path.exists(db_path):
         os.remove(db_path)
         print("🗑️  Database lama dihapus")
@@ -15,7 +12,6 @@ def init_complete_database():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Tabel saldo
     cursor.execute('''
         CREATE TABLE saldo (
             user_id INTEGER PRIMARY KEY,
@@ -24,7 +20,6 @@ def init_complete_database():
         )
     ''')
     
-    # Tabel riwayat_order
     cursor.execute('''
         CREATE TABLE riwayat_order (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,7 +33,6 @@ def init_complete_database():
         )
     ''')
     
-    # Tabel topup
     cursor.execute('''
         CREATE TABLE topup (
             id TEXT PRIMARY KEY,
@@ -50,7 +44,6 @@ def init_complete_database():
         )
     ''')
     
-    # Tabel riwayat_saldo
     cursor.execute('''
         CREATE TABLE riwayat_saldo (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,19 +55,15 @@ def init_complete_database():
         )
     ''')
     
-    # Insert sample data
     cursor.execute("INSERT INTO saldo (user_id, saldo) VALUES (6738243352, 100000)")
     cursor.execute("INSERT INTO saldo (user_id, saldo) VALUES (7366367635, 50000)")
     
     conn.commit()
     conn.close()
-    
-    print(f"✅ Database lengkap diinisialisasi: {db_path}")
-    print("✅ Tabel created: saldo, riwayat_order, topup, riwayat_saldo")
-    print("✅ Sample data inserted")
+    print("✅ Database diinisialisasi")
 
 if __name__ == '__main__':
-    init_complete_database()
+    init_db()
 EOF
 
-python init_complete_database.py
+python init_db.py
