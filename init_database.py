@@ -1,10 +1,10 @@
-cat > init_database.py << 'EOF'
+cat > init_complete_database.py << 'EOF'
 #!/usr/bin/env python3
 import sqlite3
 import os
 
-def init_database():
-    """Inisialisasi database dengan tabel yang diperlukan"""
+def init_complete_database():
+    """Inisialisasi database lengkap dengan semua tabel"""
     db_path = 'bot_database.db'
     
     # Hapus database lama jika ada
@@ -15,18 +15,18 @@ def init_database():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Buat tabel saldo
+    # Tabel saldo
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS saldo (
+        CREATE TABLE saldo (
             user_id INTEGER PRIMARY KEY,
             saldo INTEGER DEFAULT 0,
             last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # Buat tabel riwayat_order
+    # Tabel riwayat_order
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS riwayat_order (
+        CREATE TABLE riwayat_order (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             product_name TEXT,
@@ -38,9 +38,9 @@ def init_database():
         )
     ''')
     
-    # Buat tabel topup
+    # Tabel topup
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS topup (
+        CREATE TABLE topup (
             id TEXT PRIMARY KEY,
             user_id INTEGER,
             nominal INTEGER,
@@ -50,19 +50,31 @@ def init_database():
         )
     ''')
     
-    # Insert data sample
-    cursor.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (6738243352, 100000)")
-    cursor.execute("INSERT OR IGNORE INTO saldo (user_id, saldo) VALUES (7366367635, 50000)")
+    # Tabel riwayat_saldo
+    cursor.execute('''
+        CREATE TABLE riwayat_saldo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            tipe TEXT,
+            perubahan INTEGER,
+            keterangan TEXT,
+            tanggal TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Insert sample data
+    cursor.execute("INSERT INTO saldo (user_id, saldo) VALUES (6738243352, 100000)")
+    cursor.execute("INSERT INTO saldo (user_id, saldo) VALUES (7366367635, 50000)")
     
     conn.commit()
     conn.close()
     
-    print(f"✅ Database diinisialisasi: {db_path}")
-    print("✅ Tabel created: saldo, riwayat_order, topup")
+    print(f"✅ Database lengkap diinisialisasi: {db_path}")
+    print("✅ Tabel created: saldo, riwayat_order, topup, riwayat_saldo")
     print("✅ Sample data inserted")
 
 if __name__ == '__main__':
-    init_database()
+    init_complete_database()
 EOF
 
-python init_database.py
+python init_complete_database.py
