@@ -2,7 +2,7 @@ from telegram import ParseMode
 from markup import reply_main_menu
 from config import ADMIN_IDS
 
-async def start(update, context):  # ✅ TAMBAHKAN ASYNC
+def start(update, context):  # ✅ HAPUS ASYNC - untuk versi lama
     user = update.message.from_user
     is_admin = user.id in ADMIN_IDS
     
@@ -21,30 +21,30 @@ async def start(update, context):  # ✅ TAMBAHKAN ASYNC
     if is_admin:
         welcome_text += "\n🛠 *Admin Panel* - Menu khusus admin"
     
-    await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
+    update.message.reply_text(  # ✅ HAPUS AWAIT - untuk versi lama
         welcome_text,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=reply_main_menu(is_admin=is_admin)
     )
 
-async def cancel(update, context):  # ✅ TAMBAHKAN ASYNC
+def cancel(update, context):  # ✅ HAPUS ASYNC - untuk versi lama
     user = update.effective_user
     is_admin = user.id in ADMIN_IDS
     context.user_data.clear()
     
     if update.callback_query:
-        await update.callback_query.answer()  # ✅ TAMBAHKAN AWAIT
-        await update.callback_query.edit_message_text(  # ✅ TAMBAHKAN AWAIT
+        update.callback_query.answer()  # ✅ HAPUS AWAIT - untuk versi lama
+        update.callback_query.edit_message_text(  # ✅ HAPUS AWAIT - untuk versi lama
             "❌ Operasi dibatalkan.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
     else:
-        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
+        update.message.reply_text(  # ✅ HAPUS AWAIT - untuk versi lama
             "❌ Operasi dibatalkan.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
 
-async def reply_menu_handler(update, context):  # ✅ TAMBAHKAN ASYNC
+def reply_menu_handler(update, context):  # ✅ HAPUS ASYNC - untuk versi lama
     user = update.message.from_user
     text = update.message.text
     is_admin = user.id in ADMIN_IDS
@@ -61,9 +61,9 @@ async def reply_menu_handler(update, context):  # ✅ TAMBAHKAN ASYNC
             "6. 🔍 *Status* - Cek status order terakhir\n\n"
             "❓ Butuh bantuan? Hubungi admin."
         )
-        await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)  # ✅ TAMBAHKAN AWAIT
+        update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)  # ✅ HAPUS AWAIT
     else:
-        await update.message.reply_text(  # ✅ TAMBAHKAN AWAIT
+        update.message.reply_text(  # ✅ HAPUS AWAIT
             "ℹ️ Pilih menu yang tersedia di keyboard bawah.",
             reply_markup=reply_main_menu(is_admin=is_admin)
         )
