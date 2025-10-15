@@ -494,4 +494,55 @@ async def handle_topup_history(update: Update, context: ContextTypes.DEFAULT_TYP
             c.execute('''
                 SELECT amount, status, created_at 
                 FROM topup_requests 
-                WHERE user_id 
+                WHERE user_id = ?
+                ORDER BY created_at DESC 
+                LIMIT 10
+            ''', (user_id,))
+            history = c.fetchall()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error getting topup history: {e}")
+            history = []
+        
+        if history:
+            message = "📋 **RIWAYAT TOP UP**\n\n"
+            for amount, status, created_at in history:
+                status_icon = "✅" if status == "approved" else "⏳" if status == "pending" else "❌"
+                status_text = "DITERIMA" if status == "approved" else "MENUNGGU" if status == "pending" else "DITOLAK"
+                message += f"{status_icon} **Rp {amount:,}**\n"
+                message += f"📅 {created_at} - {status_text}\n\n"
+        else:
+            message = "📭 **Belum ada riwayat top up**\n\n"
+        
+        message += "Gunakan menu Top Up untuk menambah saldo."
+        
+        keyboard = [
+            [InlineKeyboardButton("💳 Top Up Sekarang", callback_data="topup_manual")],
+            [InlineKeyboardButton("🔄 Refresh", callback_data="topup_history")],
+            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_main")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"❌ Error in handle_topup_history: {str(e)}")
+        await query.message.reply_text("❌ Terjadi error, silakan coba lagi.")
+
+# Conversation handler untuk topup
+topup_conv_handler = ConversationHandler(
+    entry_points=[
+        CommandHandler('topup', topup_start),
+        CallbackQueryHandler(handle_topup_manual, pattern='^topup_manual$')
+    ],
+    states={
+        ASK_TOPUP_NOMINAL: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, topup_nominal),
+            CommandHandler('cancel', topup_cancel)
+        ]
+    },
+    fallbacks=[
+        CommandHandler('cancel', topup_cancel)
+    ],
+    allow_reentry=True
+)
