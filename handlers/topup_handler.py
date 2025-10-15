@@ -1,548 +1,507 @@
-import base64
-import random
-import uuid
-import time
 import logging
-import sqlite3
-from io import BytesIO
-from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
+import uuid
 import requests
+import aiohttp
+import asyncio
+import sqlite3
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ConversationHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes
+)
 import database
 import config
+import telegram
 
 logger = logging.getLogger(__name__)
 
-# States untuk conversation
-ASK_TOPUP_NOMINAL = 1
+# States
+MENU, CHOOSING_GROUP, CHOOSING_PRODUCT, ENTER_TUJUAN, CONFIRM_ORDER = range(5)
+PRODUCTS_PER_PAGE = 8
 
-# Konfigurasi QRIS dari config.py
-QRIS_STATIS = getattr(config, 'QRIS_STATIS', '')
-ADMIN_IDS = getattr(config, 'ADMIN_TELEGRAM_IDS', [])
-
-def generate_unique_amount(base_amount):
-    """Generate nominal unik dengan menambahkan 2 digit random"""
+# PATCH: Helper agar edit_message_text tidak error jika "Message is not modified"
+async def safe_edit_message_text(callback_query, *args, **kwargs):
+    """Safely edit message text with error handling"""
     try:
-        base_amount = int(base_amount)
-        unique_digits = random.randint(1, 99)
-        unique_amount = base_amount + unique_digits
-        return unique_amount, unique_digits
-    except Exception as e:
-        logger.error(f"Error generating unique amount: {e}")
-        return base_amount, 0
-
-async def generate_qris(unique_amount):
-    """Generate QRIS menggunakan API dengan format yang benar"""
-    try:
-        logger.info(f"🔧 [QRIS] Generating QRIS untuk amount: {unique_amount}")
-        
-        # Format payload sesuai dokumentasi API
-        payload = {
-            "amount": str(unique_amount),
-            "qris_statis": QRIS_STATIS
-        }
-        
-        logger.info(f"🔧 [QRIS] Payload: {payload}")
-        
-        # Kirim request ke API QRIS
-        response = requests.post(
-            "https://qrisku.my.id/api",
-            json=payload,
-            headers={'Content-Type': 'application/json'},
-            timeout=60
-        )
-        
-        logger.info(f"🔧 [QRIS] Response status: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            logger.info(f"🔧 [QRIS] API Response: {result}")
-            
-            if result.get("status") == "success" and "qris_base64" in result:
-                qris_base64 = result["qris_base64"]
-                logger.info("✅ [QRIS] QRIS berhasil digenerate")
-                return qris_base64, None
-            else:
-                error_msg = result.get('message', 'Unknown error from QRIS API')
-                logger.error(f"❌ [QRIS] API Error: {error_msg}")
-                return None, error_msg
-        else:
-            error_msg = f"HTTP {response.status_code}: {response.text}"
-            logger.error(f"❌ [QRIS] HTTP Error: {error_msg}")
-            return None, error_msg
-            
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
-        logger.error(f"❌ [QRIS] {error_msg}")
-        return None, error_msg
-
-async def topup_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mulai proses topup"""
-    try:
-        logger.info("🔧 [TOPUP_START] Dipanggil")
-        
-        # Handle both command and callback
-        if update.callback_query:
-            query = update.callback_query
-            user = query.from_user
-            await query.answer()
-            await query.message.reply_text(
-                "💳 **TOP UP SALDO**\n\n"
-                "Masukkan nominal top up (angka saja):\n"
-                "✅ Contoh: `100000` untuk Rp 100.000\n\n"
-                "💰 **PENTING:** Nominal akan ditambahkan kode unik untuk memudahkan verifikasi.\n\n"
-                "❌ Ketik /cancel untuk membatalkan",
-                parse_mode='Markdown'
-            )
-        else:
-            user = update.message.from_user
-            await update.message.reply_text(
-                "💳 **TOP UP SALDO**\n\n"
-                "Masukkan nominal top up (angka saja):\n"
-                "✅ Contoh: `100000` untuk Rp 100.000\n\n"
-                "💰 **PENTING:** Nominal akan ditambahkan kode unik untuk memudahkan verifikasi.\n\n"
-                "❌ Ketik /cancel untuk membatalkan",
-                parse_mode='Markdown'
-            )
-        
-        logger.info(f"✅ [TOPUP_START] Conversation state ASK_TOPUP_NOMINAL dimulai untuk user {user.id}")
-        return ASK_TOPUP_NOMINAL
-        
-    except Exception as e:
-        logger.error(f"❌ [TOPUP_START] Error: {str(e)}", exc_info=True)
-        error_message = "❌ Terjadi error, silakan coba lagi."
-        if update.callback_query:
-            await update.callback_query.message.reply_text(error_message)
-        else:
-            await update.message.reply_text(error_message)
-        return ConversationHandler.END
-
-async def topup_nominal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Process nominal topup dengan QRIS"""
-    try:
-        user = update.message.from_user
-        nominal_input = update.message.text.strip()
-        
-        logger.info(f"🔧 [TOPUP_NOMINAL] Dipanggil - User: {user.id}, Input: {nominal_input}")
-        
-        # Cek jika user ingin cancel
-        if nominal_input.lower() == '/cancel':
-            logger.info(f"🔧 [TOPUP_NOMINAL] User {user.id} membatalkan")
-            await update.message.reply_text("❌ **Top Up Dibatalkan**")
-            return ConversationHandler.END
-            
-        # Validasi input
-        if not nominal_input.isdigit() or int(nominal_input) <= 0:
-            logger.warning(f"🔧 [TOPUP_NOMINAL] Input tidak valid: {nominal_input}")
-            await update.message.reply_text(
-                "❌ **Format tidak valid!**\n\n"
-                "Masukkan hanya angka dan lebih dari 0.\n"
-                "✅ Contoh: `50000` untuk Rp 50.000\n\n"
-                "Silakan masukkan lagi:",
-                parse_mode='Markdown'
-            )
-            return ASK_TOPUP_NOMINAL
-        
-        base_amount = int(nominal_input)
-        
-        # Validasi minimum amount
-        if base_amount < 10000:
-            logger.warning(f"🔧 [TOPUP_NOMINAL] Nominal terlalu kecil: {base_amount}")
-            await update.message.reply_text(
-                "❌ **Nominal terlalu kecil!**\n\n"
-                "Minimum top up adalah Rp 10.000\n\n"
-                "Silakan masukkan nominal yang valid:",
-                parse_mode='Markdown'
-            )
-            return ASK_TOPUP_NOMINAL
-        
-        # Validasi maksimum amount
-        if base_amount > 10000000:
-            logger.warning(f"🔧 [TOPUP_NOMINAL] Nominal terlalu besar: {base_amount}")
-            await update.message.reply_text(
-                "❌ **Nominal terlalu besar!**\n\n"
-                "Maksimum top up adalah Rp 10.000.000\n\n"
-                "Silakan masukkan nominal yang lebih kecil:",
-                parse_mode='Markdown'
-            )
-            return ASK_TOPUP_NOMINAL
-        
-        # Generate nominal unik
-        unique_amount, unique_digits = generate_unique_amount(base_amount)
-        
-        logger.info(f"🔧 [TOPUP_NOMINAL] Generated: Base={base_amount}, Unique={unique_amount}, Digits={unique_digits}")
-        
-        # Kirim pesan sedang memproses
-        processing_msg = await update.message.reply_text(
-            "🔄 **Membuat QRIS...**\n\n"
-            "Sedang generate kode QRIS untuk pembayaran Anda...\n"
-            "⏰ Proses ini mungkin memakan waktu beberapa detik.",
-            parse_mode='Markdown'
-        )
-        
-        # Generate QRIS
-        qris_base64, qris_error = await generate_qris(unique_amount)
-        
-        # Simpan ke database
-        user_id = str(user.id)
-        
-        if qris_base64:
-            request_id = create_topup_request_compatible(
-                user_id, 
-                base_amount,
-                unique_amount,
-                unique_digits,
-                qris_base64
-            )
-        else:
-            request_id = create_topup_request_compatible(
-                user_id, 
-                base_amount,
-                unique_amount,
-                unique_digits,
-                None
-            )
-        
-        if request_id is None:
-            logger.error("❌ [TOPUP_NOMINAL] Gagal membuat topup request di database")
-            await processing_msg.delete()
-            await update.message.reply_text(
-                "❌ **Gagal membuat request topup.**\n\nSilakan coba lagi nanti.",
-                parse_mode='Markdown'
-            )
-            return ConversationHandler.END
-        
-        # Hapus pesan processing
-        await processing_msg.delete()
-        
-        if qris_base64:
+        await callback_query.edit_message_text(*args, **kwargs)
+        return True
+    except telegram.error.BadRequest as e:
+        if "Message is not modified" in str(e):
+            # Ignore this specific error
+            return True
+        elif "Message can't be deleted" in str(e):
+            # Try sending new message instead
             try:
-                # Decode base64 ke bytes
-                qris_bytes = base64.b64decode(qris_base64)
-                
-                bio = BytesIO(qris_bytes)
-                bio.name = 'qris.png'
-                bio.seek(0)
-                
-                # Kirim QRIS ke user
-                await update.message.reply_photo(
-                    photo=bio,
-                    caption=(
-                        f"📱 **QRIS TOP UP**\n\n"
-                        f"💰 **Total Transfer:** Rp {unique_amount:,}\n"
-                        f"🔢 **Kode Unik:** {unique_digits:03d}\n"
-                        f"📋 **ID Request:** `{request_id}`\n\n"
-                        f"⚠️ **Transfer tepat Rp {unique_amount:,}**\n"
-                        f"Saldo akan otomatis bertambah setelah admin verifikasi.\n\n"
-                        f"⏰ **QRIS berlaku 24 jam**\n\n"
-                        f"💡 **Cara Bayar:**\n"
-                        f"1. Buka aplikasi e-wallet atau bank Anda\n"
-                        f"2. Pilih scan QRIS\n"
-                        f"3. Scan QR code di atas\n"
-                        f"4. Pastikan nominal: **Rp {unique_amount:,}**"
-                    ),
-                    parse_mode='Markdown'
-                )
-                
-                logger.info(f"✅ [TOPUP_NOMINAL] QRIS berhasil dikirim ke user {user.id}")
-                
-            except Exception as e:
-                logger.error(f"❌ [TOPUP_NOMINAL] Error processing QRIS image: {e}")
-                await update.message.reply_text(
-                    f"📱 **TOP UP DITERIMA**\n\n"
-                    f"💰 **Total Transfer:** Rp {unique_amount:,}\n"
-                    f"🔢 **Kode Unik:** {unique_digits:03d}\n"
-                    f"📋 **ID Request:** `{request_id}`\n\n"
-                    f"⚠️ **Transfer tepat Rp {unique_amount:,}**\n"
-                    f"Saldo akan otomatis bertambah setelah admin verifikasi.\n\n"
-                    f"❌ **Peringatan:** QRIS gagal ditampilkan, silakan hubungi admin.",
-                    parse_mode='Markdown'
-                )
-        else:
-            # Fallback ke transfer manual
-            await update.message.reply_text(
-                f"💰 **TOP UP DITERIMA**\n\n"
-                f"👤 **User:** {user.full_name or 'User'}\n"
-                f"📊 **Nominal Dasar:** Rp {base_amount:,}\n"
-                f"🔢 **Kode Unik:** {unique_digits:03d}\n"
-                f"💵 **Total Transfer:** Rp {unique_amount:,}\n"
-                f"📋 **ID Request:** `{request_id}`\n\n"
-                f"❌ **QRIS Gagal:** {qris_error}\n\n"
-                f"⚠️ **SILAKAN TRANSFER MANUAL**\n\n"
-                f"Saldo akan ditambahkan setelah admin verifikasi.",
-                parse_mode='Markdown'
-            )
-        
-        # Kirim notifikasi ke admin
-        await send_admin_notification(context, request_id, user, base_amount, unique_amount, unique_digits, qris_base64 is not None)
-        
-        logger.info(f"✅ [TOPUP_NOMINAL] Proses selesai untuk user {user.id}")
-        
-        return ConversationHandler.END
-        
+                await callback_query.message.reply_text(*args, **kwargs)
+                return True
+            except Exception as send_error:
+                logger.error(f"Failed to send new message: {send_error}")
+                return False
+        logger.error(f"Error editing message: {e}")
+        return False
     except Exception as e:
-        logger.error(f"❌ [TOPUP_NOMINAL] Error: {str(e)}", exc_info=True)
-        await update.message.reply_text(
-            f"❌ **Error System**\n\n"
-            f"Terjadi kesalahan: {str(e)}\n\n"
-            f"Silakan coba lagi nanti.",
-            parse_mode='Markdown'
-        )
-        return ConversationHandler.END
+        logger.error(f"Unexpected error in safe_edit_message_text: {e}")
+        return False
 
-def create_topup_request_compatible(user_id, base_amount, unique_amount, unique_digits, qris_base64):
-    """Fungsi kompatibilitas untuk membuat topup request sesuai struktur database"""
+async def safe_reply_message(update, *args, **kwargs):
+    """Safely reply to message with error handling"""
+    try:
+        if hasattr(update, 'message') and update.message:
+            await update.message.reply_text(*args, **kwargs)
+            return True
+        elif hasattr(update, 'callback_query') and update.callback_query:
+            await update.callback_query.message.reply_text(*args, **kwargs)
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error replying to message: {e}")
+        return False
+
+def get_grouped_products():
+    """Get products grouped by category with error handling"""
     try:
         conn = sqlite3.connect(database.DB_PATH)
         c = conn.cursor()
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Get user info
-        c.execute("SELECT username, full_name FROM users WHERE user_id = ?", (user_id,))
-        row = c.fetchone()
-        username = row[0] if row else ""
-        full_name = row[1] if row else ""
-        
-        # Insert dengan struktur yang sesuai
         c.execute("""
-            INSERT INTO topup_requests (
-                user_id, username, full_name, amount, status, proof_image, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
-        """, (user_id, username, full_name, unique_amount, qris_base64, now, now))
-        
-        request_id = c.lastrowid
-        conn.commit()
+            SELECT code, name, price, category, description, status, gangguan, kosong
+            FROM products
+            WHERE status='active' AND gangguan=0 AND kosong=0
+            ORDER BY code ASC
+        """)
+        products = c.fetchall()
         conn.close()
-        logger.info(f"✅ Topup request created: ID {request_id}")
-        return request_id
-    except Exception as e:
-        logger.error(f"❌ Error create_topup_request_compatible: {e}")
-        return None
 
-async def send_admin_notification(context: ContextTypes.DEFAULT_TYPE, request_id, user, base_amount, unique_amount, unique_digits, has_qris=True):
-    """Kirim notifikasi ke admin dengan tombol aksi"""
+        groups = {}
+        for code, name, price, category, description, status, gangguan, kosong in products:
+            if code.startswith("BPAL"):
+                group = "BPAL (Bonus Akrab L)"
+            elif code.startswith("BPAXXL"):
+                group = "BPAXXL (Bonus Akrab XXL)"
+            elif code.startswith("XLA"):
+                group = "XLA (Umum)"
+            else:
+                group = category or "Lainnya"
+            
+            if group not in groups:
+                groups[group] = []
+            
+            groups[group].append({
+                'code': code,
+                'name': name,
+                'price': price,
+                'category': category,
+                'description': description
+            })
+        return groups
+    except Exception as e:
+        logger.error(f"Error getting grouped products: {e}")
+        return {}
+
+async def menu_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show main menu"""
     try:
-        method = "QRIS" if has_qris else "MANUAL"
+        user = getattr(update, 'effective_user', None)
+        if user is None and hasattr(update, "callback_query"):
+            user = getattr(update.callback_query, "from_user", None)
         
-        notification_text = (
-            f"🔔 **PERMINTAAN TOP UP BARU**\n\n"
-            f"👤 **User:** {user.full_name or 'User'}\n"
-            f"📛 **Username:** @{user.username if user.username else 'N/A'}\n"
-            f"🆔 **User ID:** {user.id}\n"
-            f"💰 **Nominal Dasar:** Rp {base_amount:,}\n"
-            f"🔢 **Kode Unik:** {unique_digits:03d}\n"
-            f"💵 **Total Transfer:** Rp {unique_amount:,}\n"
-            f"📋 **ID Request:** `{request_id}`\n"
-            f"📱 **Metode:** {method}\n\n"
-            f"Pilih aksi di bawah:"
+        if not user:
+            await safe_reply_message(update, "❌ Error: Tidak dapat mengidentifikasi pengguna.")
+            return MENU
+        
+        saldo = 0
+        try:
+            user_id = str(user.id)
+            database.get_or_create_user(user_id, user.username or "", user.full_name or "")
+            saldo = database.get_user_saldo(user_id)
+        except Exception as e:
+            logger.error(f"Error getting user saldo: {e}")
+            saldo = 0
+        
+        keyboard = [
+            [InlineKeyboardButton("🛒 Beli Produk", callback_data="menu_order")],
+            [InlineKeyboardButton("💳 Cek Saldo", callback_data="menu_saldo")],
+            [InlineKeyboardButton("💸 Top Up Saldo", callback_data="menu_topup")],
+            [InlineKeyboardButton("📊 Cek Stok", callback_data="menu_stock")],
+            [InlineKeyboardButton("📞 Bantuan", callback_data="menu_help")]
+        ]
+        
+        # Check if user is admin
+        admin_ids = getattr(config, 'ADMIN_TELEGRAM_IDS', [])
+        if user and str(user.id) in admin_ids:
+            keyboard.append([InlineKeyboardButton("👑 Admin Panel", callback_data="menu_admin")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        text = (
+            f"🤖 *Selamat Datang!*\n\n"
+            f"Halo, *{user.full_name or user.username or 'User'}*!\n"
+            f"💰 Saldo Anda: *Rp {saldo:,.0f}*\n\n"
+            f"Pilih menu di bawah:"
         )
         
-        # Buat tombol aksi untuk admin
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Approve", callback_data=f"admin_approve_topup_{request_id}"),
-                InlineKeyboardButton("❌ Reject", callback_data=f"admin_reject_topup_{request_id}")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # Kirim ke semua admin
-        for admin_id in ADMIN_IDS:
-            try:
-                await context.bot.send_message(
-                    chat_id=admin_id,
-                    text=notification_text,
-                    reply_markup=reply_markup,
-                    parse_mode='Markdown'
-                )
-                logger.info(f"✅ Notifikasi terkirim ke admin {admin_id}")
-            except Exception as e:
-                logger.error(f"❌ Gagal kirim notifikasi ke admin {admin_id}: {e}")
-                
-    except Exception as e:
-        logger.error(f"❌ Error in send_admin_notification: {str(e)}")
-
-async def topup_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Batalkan topup"""
-    try:
-        logger.info("🔧 [TOPUP_CANCEL] Dipanggil")
-        
-        if update.callback_query:
-            query = update.callback_query
-            await query.answer()
-            await query.message.reply_text("❌ **Top Up Dibatalkan**")
+        if hasattr(update, "callback_query") and update.callback_query:
+            await safe_edit_message_text(update.callback_query, text, reply_markup=reply_markup, parse_mode="Markdown")
         else:
-            await update.message.reply_text("❌ **Top Up Dibatalkan**")
+            await safe_reply_message(update, text, reply_markup=reply_markup, parse_mode="Markdown")
+            
+        return MENU
         
     except Exception as e:
-        logger.error(f"❌ [TOPUP_CANCEL] Error: {str(e)}")
+        logger.error(f"Error in menu_main: {e}")
+        await safe_reply_message(update, "❌ Terjadi error. Silakan coba lagi.")
+        return MENU
+
+async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Main menu handler"""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
     
-    return ConversationHandler.END
-
-async def show_topup_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tampilkan menu topup utama"""
+    logger.info(f"Menu callback received: {data}")
+    
     try:
-        query = update.callback_query
-        await query.answer()
+        if data == "menu_order":
+            return await show_group_menu(update, context)
+        elif data == "menu_saldo":
+            user_id = str(query.from_user.id)
+            saldo = database.get_user_saldo(user_id)
+            await safe_edit_message_text(
+                query,
+                f"💳 *SALDO ANDA*\n\nSaldo: *Rp {saldo:,.0f}*\n\nGunakan menu Top Up untuk menambah saldo.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💸 Top Up Saldo", callback_data="menu_topup")], [InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]]),
+                parse_mode="Markdown"
+            )
+            return MENU
+        elif data == "menu_help":
+            await safe_edit_message_text(
+                query,
+                "📞 *BANTUAN*\n\n"
+                "Jika mengalami masalah, hubungi admin.\n\n"
+                "**Cara Order:**\n"
+                "1. Pilih *Beli Produk*\n"
+                "2. Pilih grup produk\n" 
+                "3. Pilih produk yang diinginkan\n"
+                "4. Masukkan nomor tujuan\n"
+                "5. Konfirmasi order\n\n"
+                "**Fitur Lain:**\n"
+                "• Top Up Saldo\n"
+                "• Cek Stok Produk\n"
+                "• Riwayat Transaksi",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]]),
+                parse_mode="Markdown"
+            )
+            return MENU
+        elif data == "menu_topup":
+            # Langsung arahkan ke topup_handler
+            try:
+                from topup_handler import show_topup_menu
+                await show_topup_menu(update, context)
+                return ConversationHandler.END
+            except Exception as e:
+                logger.error(f"Error loading topup menu: {e}")
+                await safe_edit_message_text(
+                    query,
+                    "❌ Error memuat menu topup. Silakan gunakan command /topup",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+                )
+                return MENU
+        elif data == "menu_stock":
+            await show_stock_menu(update, context)
+            return MENU
+        elif data == "menu_admin":
+            admin_ids = getattr(config, 'ADMIN_TELEGRAM_IDS', [])
+            if str(query.from_user.id) in admin_ids:
+                try:
+                    from admin_handler import admin_menu
+                    await admin_menu(update, context)
+                    return ConversationHandler.END
+                except Exception as e:
+                    logger.error(f"Error loading admin panel: {e}")
+                    await safe_edit_message_text(
+                        query,
+                        "❌ Error memuat panel admin. Silakan gunakan command /admin",
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+                    )
+                    return MENU
+            else:
+                await query.answer("❌ Anda bukan admin!", show_alert=True)
+                return MENU
+        elif data == "menu_main":
+            return await menu_main(update, context)
+        else:
+            await query.answer("❌ Menu tidak dikenal!")
+            return MENU
+            
+    except Exception as e:
+        logger.error(f"Error in menu_handler: {e}")
+        await safe_edit_message_text(
+            query,
+            "❌ Terjadi error. Silakan coba lagi.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+        )
+        return MENU
+
+async def show_stock_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show stock menu with fallback"""
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        # Try to use stok_handler if available
+        try:
+            import stok_handler
+            if hasattr(stok_handler, 'stock_akrab_callback'):
+                await stok_handler.stock_akrab_callback(update, context)
+                return
+        except ImportError:
+            pass
+        
+        # Fallback to direct API call
+        await get_stock_fallback(update, context)
+        
+    except Exception as e:
+        logger.error(f"Error showing stock menu: {e}")
+        await safe_edit_message_text(
+            query,
+            "❌ Gagal mengambil data stok. Silakan coba lagi nanti.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh Stok", callback_data="menu_stock")],
+                [InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]
+            ])
+        )
+
+async def get_stock_fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Fallback stock check using aiohttp"""
+    query = update.callback_query
+    
+    try:
+        api_key = getattr(config, 'API_KEY_PROVIDER', '')
+        url = "https://panel.khfy-store.com/api_v3/cek_stock_akrab"
+        
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params={'api_key': api_key} if api_key else {}) as response:
+                if response.status == 200:
+                    data = await response.json()
+                else:
+                    data = None
+        
+        if data and data.get("ok", False):
+            stocks = data.get("data", {})
+            if stocks:
+                msg = "📊 **STOK PRODUK AKRAB**\n\n"
+                for product_name, stock_info in stocks.items():
+                    stock = stock_info.get("stock", 0)
+                    status = "✅ TERSEDIA" if stock > 0 else "❌ HABIS"
+                    msg += f"• **{product_name}**: {stock} pcs - {status}\n"
+                msg += f"\n⏰ **Update**: {data.get('timestamp', 'N/A')}"
+            else:
+                msg = "📭 Tidak ada data stok yang tersedia."
+        else:
+            msg = "❌ Gagal mengambil data stok dari provider."
+            
+    except asyncio.TimeoutError:
+        msg = "⏰ Timeout: Gagal mengambil data stok. Silakan coba lagi."
+    except Exception as e:
+        logger.error(f"Error getting stock: {e}")
+        msg = f"❌ **Gagal mengambil data stok:**\n{str(e)}"
+
+    keyboard = [
+        [InlineKeyboardButton("🔄 Refresh Stok", callback_data="menu_stock")],
+        [InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await safe_edit_message_text(query, msg, parse_mode='Markdown', reply_markup=reply_markup)
+
+async def show_group_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show product groups menu"""
+    try:
+        groups = get_grouped_products()
+        
+        if not groups:
+            await safe_edit_message_text(
+                update.callback_query,
+                "❌ Tidak ada produk yang tersedia saat ini.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+            )
+            return MENU
         
         keyboard = [
-            [InlineKeyboardButton("💳 Topup QRIS", callback_data="topup_manual")],
-            [InlineKeyboardButton("📋 Riwayat Topup", callback_data="topup_history")],
-            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_main")]
+            [InlineKeyboardButton(group, callback_data=f"group_{group}")]
+            for group in sorted(groups.keys())
         ]
+        keyboard.append([InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            "💰 **Menu Topup**\n\n"
-            "Pilih jenis topup:\n\n"
-            "💳 **Topup QRIS** - Bayar dengan scan QRIS\n"
-            "📋 **Riwayat** - Lihat history topup\n\n"
-            "Pilih opsi di bawah:",
+        await safe_edit_message_text(
+            update.callback_query,
+            "📦 *PILIH GRUP PRODUK*\n\nSilakan pilih grup kuota/produk yang diinginkan:",
             reply_markup=reply_markup,
-            parse_mode='Markdown'
+            parse_mode="Markdown"
         )
         
+        context.user_data["groups"] = groups
+        return CHOOSING_GROUP
+        
     except Exception as e:
-        logger.error(f"❌ Error in show_topup_menu: {str(e)}")
-        if update.callback_query:
-            await update.callback_query.message.reply_text("❌ Terjadi error, silakan coba lagi.")
+        logger.error(f"Error in show_group_menu: {e}")
+        await safe_edit_message_text(
+            update.callback_query,
+            "❌ Error memuat daftar produk. Silakan coba lagi.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+        )
+        return MENU
 
-async def show_manage_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tampilkan menu kelola topup (untuk admin)"""
+def get_products_keyboard_group(products, page=0):
+    """Create paginated products keyboard"""
+    total_pages = (len(products) - 1) // PRODUCTS_PER_PAGE + 1
+    start = page * PRODUCTS_PER_PAGE
+    end = start + PRODUCTS_PER_PAGE
+    page_products = products[start:end]
+    
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{prod['name']} ({prod['code']}) - Rp {prod['price']:,.0f}",
+            callback_data=f"prod_{prod['code']}")
+        ] for prod in page_products
+    ]
+    
+    # Navigation buttons
+    navigation = []
+    if page > 0:
+        navigation.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"page_{page-1}"))
+    if page < total_pages - 1:
+        navigation.append(InlineKeyboardButton("Next ➡️", callback_data=f"page_{page+1}"))
+    
+    if navigation:
+        keyboard.append(navigation)
+    
+    keyboard.append([InlineKeyboardButton("⬅️ Kembali ke Grup", callback_data="menu_order")])
+    keyboard.append([InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")])
+    
+    return InlineKeyboardMarkup(keyboard), total_pages
+
+async def choose_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle group selection"""
+    query = update.callback_query
+    await query.answer()
+    
     try:
-        query = update.callback_query
-        await query.answer()
+        group_name = query.data.replace("group_", "")
+        groups = context.user_data.get("groups", {})
+        products = groups.get(group_name, [])
         
-        user_id = str(query.from_user.id)
+        if not products:
+            await safe_edit_message_text(
+                query,
+                f"❌ Tidak ada produk di grup {group_name}.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Kembali ke Grup", callback_data="menu_order")]])
+            )
+            return CHOOSING_GROUP
         
-        if user_id not in ADMIN_IDS:
-            await query.message.reply_text("❌ Anda tidak memiliki akses ke menu ini.")
-            return
+        context.user_data["current_group"] = group_name
+        context.user_data["product_list"] = products
+        context.user_data["product_page"] = 0
         
-        # Ambil pending topup requests
-        try:
-            conn = sqlite3.connect(database.DB_PATH)
-            c = conn.cursor()
-            c.execute('''
-                SELECT tr.id, tr.user_id, u.username, tr.amount, tr.status, tr.created_at 
-                FROM topup_requests tr
-                JOIN users u ON tr.user_id = u.user_id
-                WHERE tr.status = 'pending'
-                ORDER BY tr.created_at DESC
-                LIMIT 10
-            ''')
-            pending_requests = c.fetchall()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Error getting pending requests: {e}")
-            pending_requests = []
-        
-        if pending_requests:
-            message = "⏳ **TOPUP MENUNGGU VERIFIKASI**\n\n"
-            for req in pending_requests:
-                req_id, user_id, username, amount, status, created_at = req
-                message += f"📋 **ID:** `{req_id}`\n"
-                message += f"👤 **User:** {username or 'N/A'}\n"
-                message += f"💰 **Amount:** Rp {amount:,}\n"
-                message += f"⏰ **Waktu:** {created_at}\n\n"
-        else:
-            message = "✅ **Tidak ada topup yang menunggu verifikasi**\n\n"
-        
-        message += "**Perintah Admin:**\n"
-        message += "• `/approve_topup <id>` - Approve topup\n"
-        message += "• `/cancel_topup <id>` - Batalkan topup\n"
-        message += "• `/topup_history` - Lihat riwayat semua user"
-        
-        keyboard = [
-            [InlineKeyboardButton("🔄 Refresh", callback_data="manage_topup")],
-            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_admin")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+        return await show_product_in_group(query, context, page=0)
         
     except Exception as e:
-        logger.error(f"❌ Error in show_manage_topup: {str(e)}")
-        await query.message.reply_text("❌ Terjadi error, silakan coba lagi.")
+        logger.error(f"Error in choose_group: {e}")
+        await safe_edit_message_text(
+            query,
+            "❌ Error memuat produk. Silakan coba lagi.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+        )
+        return MENU
 
-async def handle_topup_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler untuk memulai topup QRIS"""
+async def show_product_in_group(query, context, page=0):
+    """Show products in selected group"""
     try:
-        logger.info("🔧 [HANDLE_TOPUP_MANUAL] Dipanggil")
-        query = update.callback_query
-        await query.answer()
-        return await topup_start(update, context)
+        products = context.user_data.get("product_list", [])
+        group_name = context.user_data.get("current_group", "")
+        
+        if not products:
+            await safe_edit_message_text(
+                query,
+                f"❌ Tidak ada produk di grup {group_name}.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Kembali ke Grup", callback_data="menu_order")]])
+            )
+            return CHOOSING_GROUP
+        
+        reply_markup, total_pages = get_products_keyboard_group(products, page)
+        
+        await safe_edit_message_text(
+            query,
+            f"🛒 *PILIH PRODUK - {group_name}*\n\nHalaman {page+1} dari {total_pages}\nSilakan pilih produk:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        
+        context.user_data["product_page"] = page
+        return CHOOSING_PRODUCT
+        
     except Exception as e:
-        logger.error(f"❌ [HANDLE_TOPUP_MANUAL] Error: {str(e)}")
-        await update.callback_query.message.reply_text("❌ Terjadi error, silakan coba lagi.")
-        return ConversationHandler.END
+        logger.error(f"Error in show_product_in_group: {e}")
+        await safe_edit_message_text(
+            query,
+            "❌ Error menampilkan produk. Silakan coba lagi.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+        )
+        return MENU
 
-async def handle_topup_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler untuk riwayat topup user"""
+async def choose_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle product selection"""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    
     try:
-        query = update.callback_query
-        await query.answer()
+        if data == "menu_main":
+            return await menu_main(update, context)
+        elif data == "menu_order":
+            return await show_group_menu(update, context)
+        elif data.startswith("page_"):
+            page = int(data.split("_")[1])
+            return await show_product_in_group(query, context, page)
+        elif not data.startswith("prod_"):
+            await safe_edit_message_text(
+                query, 
+                "❌ Produk tidak valid.", 
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+            )
+            return CHOOSING_PRODUCT
         
-        user_id = str(query.from_user.id)
+        # Handle product selection
+        kode_produk = data.replace("prod_", "")
+        products = context.user_data.get("product_list", [])
+        found = next((p for p in products if p['code'] == kode_produk), None)
         
-        # Ambil riwayat topup user
-        try:
-            conn = sqlite3.connect(database.DB_PATH)
-            c = conn.cursor()
-            c.execute('''
-                SELECT amount, status, created_at 
-                FROM topup_requests 
-                WHERE user_id = ?
-                ORDER BY created_at DESC 
-                LIMIT 10
-            ''', (user_id,))
-            history = c.fetchall()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Error getting topup history: {e}")
-            history = []
+        if not found:
+            await safe_edit_message_text(
+                query, 
+                "❌ Produk tidak ditemukan atau tidak tersedia.", 
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]])
+            )
+            return CHOOSING_PRODUCT
         
-        if history:
-            message = "📋 **RIWAYAT TOP UP**\n\n"
-            for amount, status, created_at in history:
-                status_icon = "✅" if status == "approved" else "⏳" if status == "pending" else "❌"
-                status_text = "DITERIMA" if status == "approved" else "MENUNGGU" if status == "pending" else "DITOLAK"
-                message += f"{status_icon} **Rp {amount:,}**\n"
-                message += f"📅 {created_at} - {status_text}\n\n"
-        else:
-            message = "📭 **Belum ada riwayat top up**\n\n"
+        context.user_data['selected_product'] = found
+        desc = found['description'] or "(Deskripsi produk tidak tersedia)"
         
-        message += "Gunakan menu Top Up untuk menambah saldo."
-        
-        keyboard = [
-            [InlineKeyboardButton("💳 Top Up Sekarang", callback_data="topup_manual")],
-            [InlineKeyboardButton("🔄 Refresh", callback_data="topup_history")],
-            [InlineKeyboardButton("🔙 Kembali", callback_data="menu_main")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
-        
-    except Exception as e:
-        logger.error(f"❌ Error in handle_topup_history: {str(e)}")
-        await query.message.reply_text("❌ Terjadi error, silakan coba lagi.")
-
-# Conversation handler untuk topup
-topup_conv_handler = ConversationHandler(
-    entry_points=[
-        CommandHandler('topup', topup_start),
-        CallbackQueryHandler(handle_topup_manual, pattern='^topup_manual$')
-    ],
-    states={
-        ASK_TOPUP_NOMINAL: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, topup_nominal),
-            CommandHandler('cancel', topup_cancel)
-        ]
-    },
-    fallbacks=[
-        CommandHandler('cancel', topup_cancel)
-    ],
-    allow_reentry=True
-)
+        await safe_edit_message_text(
+            query,
+            f"🛒 *PRODUK DIPILIH*\n\n"
+            f"*Nama*: {found['name']}\n"
+            f"*Kode*: {found['code']}\n"
+            f"*Kategori*: {found['category']}\n"
+            f"*Harga*: Rp {found['price']:,.0f}\n\n"
+            f"*Deskripsi:*\n{desc}\n\n"
+            f"Masukkan nomor tujuan (contoh: 081234567890):",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menu Utama", callback_data="menu_main")]]),
+            parse_mode="Markdown"
+        )
+        return ENTER_TUJUAN
+   
